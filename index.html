@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AMS2 Race Randomizer</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1016;--panel:#121d27;--panel2:#182632;--line:#2b3b49;--muted:#9aabba;--text:#edf4f8;--accent:#b9f36b;--red:#ff8d8d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% 0%,#20394a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:1050px;margin:auto;padding:25px 18px 55px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:30px}.brand{font-size:12px;letter-spacing:.14em;font-weight:900;color:var(--accent)}.status{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:5px 9px;color:var(--muted)}h1{font-size:clamp(36px,7vw,64px);line-height:.95;letter-spacing:-.06em;margin:0 0 12px}.lead{color:var(--muted);max-width:680px;margin-bottom:25px}.tabs{display:flex;gap:8px;margin:22px 0}.tab,.btn{border:1px solid var(--line);background:#1b2a36;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700}.tab.active{background:var(--accent);color:#14200c;border-color:var(--accent)}.btn.primary{background:var(--accent);color:#14200c;border-color:var(--accent)}.btn.danger{color:var(--red)}.btn:disabled{opacity:.4;cursor:not-allowed}.panel{background:linear-gradient(155deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:17px;margin-bottom:14px}.panel h2{font-size:18px;margin:0 0 5px}.hint,.muted{font-size:12px;color:var(--muted)}.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.options{display:grid;gap:8px;margin-top:13px}.option{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:11px;cursor:pointer}.option:has(input:checked){border-color:var(--accent);background:#253523}.option input{accent-color:var(--accent)}.option span{flex:1}.field{display:grid;gap:6px;margin:10px 0}.field label{font-size:12px;color:var(--muted)}input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px;font:inherit;width:100%}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.result{min-height:180px;display:flex;flex-direction:column;justify-content:center}.eyebrow{color:var(--accent);font-size:11px;font-weight:900;letter-spacing:.15em}.result h2{font-size:32px;margin:8px 0}.result p{margin:3px 0;color:var(--muted)}.result strong{color:var(--text)}.hidden{display:none!important}.notice{padding:12px 14px;border:1px solid #594b2e;background:#211e17;border-radius:11px;color:#d9cba5;font-size:12px;margin-top:15px}.list{display:grid;gap:8px;margin-top:12px}.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;background:#0d1720;border:1px solid var(--line);border-radius:10px}.item button{padding:5px 8px}.footer{font-size:11px;color:#718292;margin-top:24px}@media(max-width:760px){.cols{grid-template-columns:1fr}.wrap{padding-top:18px}.tabs{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="top"><div class="brand">AMS2 / RACE NIGHT</div><div class="status" id="connection">Ожидание настройки</div></div>
+ <h1>Выбираем,<br>что едем.</h1>
+ <div class="lead">Голосование команды и случайная жеребьёвка конфигурации гоночного вечера.</div>
+ <div class="tabs"><button class="tab active" data-tab="vote">Голосование</button><button class="tab" data-tab="result">Результат</button><button class="tab" data-tab="admin">Администрирование</button></div>
+ <section id="vote">
+  <div class="panel"><div class="row"><div><h2 id="event-title">Следующая гонка</h2><div class="hint" id="event-state">Голосование открыто</div></div><span class="status" id="vote-count">0 голосов</span></div>
+   <div class="field"><label for="nickname">Твой ник</label><input id="nickname" maxlength="30" placeholder="Например, Vlad"></div>
+  </div>
+  <div class="cols" id="vote-categories"></div>
+  <div class="actions"><button class="btn primary" id="submit-vote">Отдать голос</button><button class="btn" id="refresh">Обновить данные</button></div>
+ </section>
+ <section id="result" class="hidden">
+  <div class="panel result" id="result-card"><div class="eyebrow">RACE RANDOMIZER</div><h2>Ждём жеребьёвку</h2><p>Результат появится после выбора администратора.</p></div>
+ </section>
+ <section id="admin" class="hidden">
+  <div class="panel" id="login-panel"><h2>Вход администратора</h2><div class="hint">Вход по email и паролю Supabase Auth. Не используйте пароль как проверку только в браузере.</div>
+   <div class="field"><label>Email администратора</label><input id="admin-email" type="email" placeholder="you@example.com"></div>
+   <div class="field"><label>Пароль</label><input id="admin-password" type="password" placeholder="Пароль"></div>
+   <div class="actions"><button class="btn primary" id="login">Войти</button></div><div class="hint" id="login-message"></div>
+  </div>
+  <div id="admin-panel" class="hidden">
+   <div class="panel"><div class="row"><div><h2>Управление вечером</h2><div class="hint">Название события и статус голосования</div></div><button class="btn" id="logout">Выйти</button></div>
+    <div class="field"><label>Название гоночного вечера</label><input id="event-name" maxlength="80"></div>
+    <div class="actions"><button class="btn primary" id="save-event">Сохранить название</button><button class="btn" id="toggle-event">Закрыть голосование</button><button class="btn" id="draw">Провести weighted-жеребьёвку</button></div>
+   </div>
+   <div class="cols" id="admin-categories"></div>
+   <div class="panel"><h2>История и обслуживание</h2><div class="hint">Результаты прошлых гоночных вечеров</div><div id="history" class="list"></div><div class="actions"><button class="btn danger" id="reset-votes">Удалить голоса текущего вечера</button></div></div>
+  </div>
+ </section>
+ <div class="notice"><b>Подключение:</b> перед публикацией заполни Supabase URL и anon key в app.js. Таблицы и политики доступа создаются скриптом schema.sql. Админ-права проверяются на стороне базы, а не только скрытием кнопок.</div>
+ <div class="footer">AMS2 Race Randomizer · Supabase starter build</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body></html>
