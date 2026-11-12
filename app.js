@@ -25,6 +25,22 @@ const labels = {
   weather: "Погода"
 };
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
+// Преобразует UUID варианта в его название.
+function optionLabel(id) {
+  const option = categories.find(o => o.id === id);
+  return option ? option.label : id;
+}
+
 function tab(name) {
   document.querySelectorAll(".tab").forEach(b =>
     b.classList.toggle("active", b.dataset.tab === name)
@@ -70,8 +86,7 @@ async function init() {
   currentEvent = ev;
 
   if (!ev) {
-    $("connection").textContent =
-      "Создай гоночный вечер в SQL / админке";
+    $("connection").textContent = "Создай гоночный вечер в SQL / админке";
     return;
   }
 
@@ -108,34 +123,23 @@ async function loadOptions() {
 
   categories = data || [];
 
-  $("vote-categories").innerHTML = categoryOrder
-    .map(cat => `
-      <div class="panel">
-        <h2>${labels[cat]}</h2>
-        <div class="hint">Выбери один вариант</div>
-        <div class="options">
-          ${categories
-            .filter(o => o.category === cat)
-            .map(o => `
-              <label class="option">
-                <input type="radio" name="${cat}" value="${o.id}">
-                <span>${escapeHtml(o.label)}</span>
-              </label>
-            `).join("") ||
-            '<div class="muted">Пока нет вариантов</div>'}
-        </div>
+  $("vote-categories").innerHTML = categoryOrder.map(cat => `
+    <div class="panel">
+      <h2>${labels[cat]}</h2>
+      <div class="hint">Выбери один вариант</div>
+      <div class="options">
+        ${categories
+          .filter(o => o.category === cat)
+          .map(o => `
+            <label class="option">
+              <input type="radio" name="${cat}" value="${o.id}">
+              <span>${escapeHtml(o.label)}</span>
+            </label>
+          `).join("") ||
+          '<div class="muted">Пока нет вариантов</div>'}
       </div>
-    `).join("");
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[c]));
+    </div>
+  `).join("");
 }
 
 async function loadVotesCount() {
@@ -194,7 +198,6 @@ $("submit-vote").onclick = async () => {
   }
 
   await loadVotesCount();
-
   alert("Голос сохранён. Его можно изменить до закрытия голосования.");
 };
 
@@ -224,7 +227,6 @@ $("logout").onclick = async () => {
   await sb.auth.signOut();
 
   currentUser = null;
-
   $("admin-panel").classList.add("hidden");
   $("login-panel").classList.remove("hidden");
 };
@@ -248,12 +250,10 @@ async function loadAdmin() {
     msg("login-message", "У этого аккаунта нет прав администратора.");
 
     await sb.auth.signOut();
-
     currentUser = null;
 
     $("admin-panel").classList.add("hidden");
     $("login-panel").classList.remove("hidden");
-
     return;
   }
 
@@ -263,38 +263,37 @@ async function loadAdmin() {
     ? "Закрыть голосование"
     : "Открыть голосование";
 
-  $("admin-categories").innerHTML = categoryOrder
-    .map(cat => `
-      <div class="panel">
-        <h2>${labels[cat]}</h2>
+  $("admin-categories").innerHTML = categoryOrder.map(cat => `
+    <div class="panel">
+      <h2>${labels[cat]}</h2>
 
-        <div class="field">
-          <label>Добавить вариант</label>
-          <input
-            id="new-${cat}"
-            maxlength="80"
-            placeholder="Название варианта"
-          >
-        </div>
-
-        <button class="btn primary" data-add="${cat}">
-          Добавить
-        </button>
-
-        <div class="list">
-          ${categories
-            .filter(o => o.category === cat)
-            .map(o => `
-              <div class="item">
-                <span>${escapeHtml(o.label)}</span>
-                <button class="btn danger" data-del="${o.id}">
-                  Удалить
-                </button>
-              </div>
-            `).join("")}
-        </div>
+      <div class="field">
+        <label>Добавить вариант</label>
+        <input
+          id="new-${cat}"
+          maxlength="80"
+          placeholder="Название варианта"
+        >
       </div>
-    `).join("");
+
+      <button class="btn primary" data-add="${cat}">
+        Добавить
+      </button>
+
+      <div class="list">
+        ${categories
+          .filter(o => o.category === cat)
+          .map(o => `
+            <div class="item">
+              <span>${escapeHtml(o.label)}</span>
+              <button class="btn danger" data-del="${o.id}">
+                Удалить
+              </button>
+            </div>
+          `).join("")}
+      </div>
+    </div>
+  `).join("");
 
   document.querySelectorAll("[data-add]").forEach(b => {
     b.onclick = () => addOption(b.dataset.add);
@@ -309,7 +308,6 @@ async function loadAdmin() {
 
 async function addOption(cat) {
   const label = $("new-" + cat).value.trim();
-
   if (!label) return;
 
   const { error } = await sb
@@ -344,7 +342,6 @@ async function deleteOption(id) {
 
 $("save-event").onclick = async () => {
   const title = $("event-name").value.trim();
-
   if (!title) return;
 
   const { error } = await sb
@@ -377,7 +374,7 @@ $("draw").onclick = async () => {
     return;
   }
 
-  const { data, error } = await sb.rpc("draw_weighted", {
+  const { error } = await sb.rpc("draw_weighted", {
     p_event_id: currentEvent.id
   });
 
@@ -406,6 +403,7 @@ $("reset-votes").onclick = async () => {
   }
 };
 
+// Результат: вместо UUID показываем названия вариантов.
 async function loadResult() {
   const { data, error } = await sb
     .from("events")
@@ -431,12 +429,13 @@ async function loadResult() {
 
   $("result-card").innerHTML = `
     <div class="eyebrow">RACE SELECTED</div>
-    <h2>${escapeHtml(r.track)}</h2>
-    <p>Класс: <strong>${escapeHtml(r.car_class)}</strong></p>
-    <p>Погода: <strong>${escapeHtml(r.weather)}</strong></p>
+    <h2>${escapeHtml(optionLabel(r.track))}</h2>
+    <p>Класс: <strong>${escapeHtml(optionLabel(r.car_class))}</strong></p>
+    <p>Погода: <strong>${escapeHtml(optionLabel(r.weather))}</strong></p>
   `;
 }
 
+// История тоже показывает названия, а не UUID.
 async function loadHistory() {
   const { data, error } = await sb
     .from("events")
@@ -450,21 +449,19 @@ async function loadHistory() {
     return;
   }
 
-  $("history").innerHTML = (data || [])
-    .map(e => `
-      <div class="item">
-        <span>
-          ${escapeHtml(e.title)} ·
-          ${e.result
-            ? escapeHtml(e.result.track)
-            : "Без результата"}
-        </span>
-        <small class="muted">
-          ${new Date(e.created_at).toLocaleDateString("ru-RU")}
-        </small>
-      </div>
-    `).join("") ||
-    '<div class="muted">История пока пуста</div>';
+  $("history").innerHTML = (data || []).map(e => `
+    <div class="item">
+      <span>
+        ${escapeHtml(e.title)} ·
+        ${e.result
+          ? escapeHtml(optionLabel(e.result.track))
+          : "Без результата"}
+      </span>
+      <small class="muted">
+        ${new Date(e.created_at).toLocaleDateString("ru-RU")}
+      </small>
+    </div>
+  `).join("") || '<div class="muted">История пока пуста</div>';
 }
 
 if (sb) {
