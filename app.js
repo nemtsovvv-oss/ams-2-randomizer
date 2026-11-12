@@ -17,7 +17,10 @@ let categories = [];
 let currentUser = null;
 let isAdmin = false;
 let isOpen = true;
-let gt3Records = [];
+
+let gt3Races = [];
+let gt3Laps = [];
+let gt3Events = [];
 
 const categoryOrder = ["track", "car_class", "weather"];
 
@@ -28,7 +31,7 @@ const labels = {
 };
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -76,7 +79,9 @@ function formatVoteTime(value) {
 }
 
 function formatLapTime(ms) {
-  if (!ms || !Number.isFinite(Number(ms))) return "—";
+  if (ms === null || ms === undefined || !Number.isFinite(Number(ms))) {
+    return "—";
+  }
 
   const value = Math.round(Number(ms));
   const minutes = Math.floor(value / 60000);
@@ -104,13 +109,42 @@ function isGT3Class(id) {
   return optionLabel(id).toUpperCase().includes("GT3");
 }
 
+function getRaceLaps(raceId) {
+  return gt3Laps
+    .filter(lap => lap.race_result_id === raceId)
+    .sort((a, b) => a.lap_ms - b.lap_ms);
+}
+
 function getBestRecord(trackName) {
-  return gt3Records
-    .filter(record =>
-      record.track_name.trim().toLowerCase() ===
-      String(trackName).trim().toLowerCase()
+  const matchingRaceIds = gt3Races
+    .filter(race =>
+      String(race.track_name || "").trim().toLowerCase() ===
+      String(trackName || "").trim().toLowerCase()
     )
-    .sort((a, b) => a.hotlap_ms - b.hotlap_ms)[0] || null;
+    .map(race => race.id);
+
+  return gt3Laps
+    .filter(lap => matchingRaceIds.includes(lap.race_result_id))
+    .sort((a, b) => a.lap_ms - b.lap_ms)[0] || null;
+}
+
+function getRaceTitle(race) {
+  const event = gt3Events.find(item => item.id === race.event_id);
+  return event?.title || "Гоночный вечер";
+}
+
+function getRaceDate(race) {
+  const event = gt3Events.find(item => item.id === race.event_id);
+  const value = event?.created_at || race.created_at;
+
+  if (!value) return "";
+
+  return new Date(value).toLocaleDateString("ru-RU", {
+    timeZone: "Asia/Almaty",
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  });
 }
 
 function installExtraStyles() {
@@ -200,6 +234,141 @@ function installExtraStyles() {
     .admin-option button {
       flex: 0 0 auto;
     }
+
+    .gt3-race-card {
+      border-top: 1px solid var(--line);
+      padding-top: 15px;
+      margin-top: 15px;
+    }
+
+    .gt3-race-card:first-child {
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 10px;
+    }
+
+    .gt3-lap-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .gt3-lap-item {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 10px;
+      align-items: center;
+      background: #0d1720;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px;
+    }
+
+    .gt3-lap-main {
+      min-width: 0;
+    }
+
+    .gt3-lap-driver {
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .gt3-lap-meta {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    .gt3-lap-time {
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .gt3-lap-edit {
+      display: grid;
+      grid-template-columns: repeat(3,minmax(0,1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .gt3-lap-edit input {
+      min-width: 0;
+    }
+
+    .gt3-lap-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .gt3-lap-actions .btn {
+      padding: 7px 10px;
+      font-size: 12px;
+    }
+
+    .gt3-history-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0d1720;
+      padding: 13px;
+      margin-top: 10px;
+    }
+
+    .gt3-history-heading {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .gt3-history-sub {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+
+    .gt3-admin-fields {
+      display: grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .gt3-admin-fields .field {
+      min-width: 0;
+    }
+
+    .gt3-history-lap {
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .gt3-history-lap:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .record-history {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    @media(max-width:600px) {
+      .gt3-lap-edit,
+      .gt3-admin-fields {
+        grid-template-columns: 1fr;
+      }
+
+      .gt3-lap-item {
+        grid-template-columns: 1fr;
+      }
+
+      .gt3-lap-time {
+        font-size: 18px;
+      }
+    }
   `;
 
   document.head.appendChild(style);
@@ -227,7 +396,7 @@ function applyEventView() {
       button.classList.toggle(
         "active",
         button.dataset.tab ===
-          ( $("records").classList.contains("hidden") ? "result" : "records" )
+          ($("records").classList.contains("hidden") ? "result" : "records")
       );
     });
   }
@@ -305,6 +474,7 @@ async function init() {
   if (!ev) {
     $("connection").textContent =
       "Создай гоночный вечер в SQL / админке";
+
     await loadGT3Records();
     return;
   }
@@ -522,7 +692,7 @@ $("logout").onclick = async () => {
 };
 
 async function loadAdmin() {
-  if (!currentUser || !currentEvent) return;
+  if (!currentUser) return;
 
   installExtraStyles();
 
@@ -556,18 +726,24 @@ async function loadAdmin() {
   $("login-panel").classList.add("hidden");
   $("admin-panel").classList.remove("hidden");
 
-  $("event-name").value = currentEvent.title;
+  if (currentEvent) {
+    $("event-name").value = currentEvent.title;
 
-  $("toggle-event").textContent = isOpen
-    ? "Закрыть голосование"
-    : "Открыть голосование";
+    $("toggle-event").textContent = isOpen
+      ? "Закрыть голосование"
+      : "Открыть голосование";
+  }
 
   renderAdminOptions();
   ensureAdminVotersPanel();
-
-  await loadAdminVoters();
   ensureAdminResultsPanel();
-  await loadHistory();
+
+  if (currentEvent) {
+    await loadAdminVoters();
+    await loadHistory();
+  }
+
+  await loadGT3Records();
   await renderGT3EntryForms();
 
   applyEventView();
@@ -684,9 +860,14 @@ async function deleteOption(id) {
 async function refreshAdminData() {
   await loadOptions();
   renderAdminOptions();
-  await loadAdminVoters();
-  await loadVotesCount();
-  await loadVoteStats();
+
+  if (currentEvent) {
+    await loadAdminVoters();
+    await loadVotesCount();
+    await loadVoteStats();
+  }
+
+  await loadGT3Records();
   await renderGT3EntryForms();
 }
 
@@ -850,6 +1031,8 @@ async function deleteVote(nickname) {
 }
 
 $("save-event").onclick = async () => {
+  if (!currentEvent) return;
+
   const title = $("event-name").value.trim();
   if (!title) return;
 
@@ -866,6 +1049,8 @@ $("save-event").onclick = async () => {
 };
 
 $("toggle-event").onclick = async () => {
+  if (!currentEvent) return;
+
   const { error } = await sb
     .from("events")
     .update({ voting_open: !isOpen })
@@ -879,6 +1064,8 @@ $("toggle-event").onclick = async () => {
 };
 
 $("draw").onclick = async () => {
+  if (!currentEvent) return;
+
   if (!confirm("Закрыть голосование и провести жеребьёвку для двух гонок?")) {
     return;
   }
@@ -897,6 +1084,7 @@ $("draw").onclick = async () => {
 };
 
 $("reset-votes").onclick = async () => {
+  if (!currentEvent) return;
   if (!confirm("Удалить все голоса текущего вечера?")) return;
 
   const { error } = await sb
@@ -914,32 +1102,59 @@ $("reset-votes").onclick = async () => {
   }
 };
 
-// Загружаем результаты GT3.
+// Загружаем все GT3-гонки, круги и названия гоночных вечеров.
 async function loadGT3Records() {
-  const { data, error } = await sb
-    .from("gt3_race_results")
-    .select("id,event_id,race_number,track_name,winner_name,hotlap_driver,hotlap_ms,car_name,created_at")
-    .order("created_at", { ascending: false });
+  const container = $("gt3-records-content");
+
+  const [
+    racesResponse,
+    lapsResponse,
+    eventsResponse
+  ] = await Promise.all([
+    sb.from("gt3_race_results")
+      .select("id,event_id,race_number,track_name,winner_name,created_at")
+      .order("created_at", { ascending: false }),
+
+    sb.from("gt3_laps")
+      .select("id,race_result_id,driver_name,lap_ms,car_name,created_at")
+      .order("lap_ms", { ascending: true }),
+
+    sb.from("events")
+      .select("id,title,created_at")
+  ]);
+
+  const error =
+    racesResponse.error ||
+    lapsResponse.error ||
+    eventsResponse.error;
 
   if (error) {
-    console.error("Ошибка загрузки GT3-рекордов", error);
+    console.error("Ошибка загрузки GT3-истории", error);
 
-    $("gt3-records-content").innerHTML =
-      `<div class="record-empty">Не удалось загрузить рекорды: ${escapeHtml(error.message)}</div>`;
+    if (container) {
+      container.innerHTML =
+        `<div class="record-empty">Не удалось загрузить историю GT3: ${escapeHtml(error.message)}</div>`;
+    }
 
     return;
   }
 
-  gt3Records = data || [];
+  gt3Races = racesResponse.data || [];
+  gt3Laps = lapsResponse.data || [];
+  gt3Events = eventsResponse.data || [];
 
   renderGT3Records();
+
+  if (isAdmin) {
+    renderGT3AdminHistory();
+  }
 }
 
 function renderGT3Records() {
   const container = $("gt3-records-content");
   if (!container) return;
 
-  if (!gt3Records.length) {
+  if (!gt3Races.length) {
     container.innerHTML = `
       <div class="record-empty">
         Пока нет сохранённых результатов GT3. Первый гоночный вечер откроет историю рекордов.
@@ -948,26 +1163,34 @@ function renderGT3Records() {
     return;
   }
 
-  // Лучший хот-лап на каждой трассе.
+  // Лучший круг по каждой трассе.
   const bestByTrack = new Map();
 
-  gt3Records.forEach(record => {
-    const key = record.track_name.trim().toLowerCase();
-    const previous = bestByTrack.get(key);
+  gt3Races.forEach(race => {
+    const key = String(race.track_name || "").trim().toLowerCase();
 
-    if (!previous || record.hotlap_ms < previous.hotlap_ms) {
-      bestByTrack.set(key, record);
-    }
+    getRaceLaps(race.id).forEach(lap => {
+      const previous = bestByTrack.get(key);
+
+      if (!previous || lap.lap_ms < previous.lap_ms) {
+        bestByTrack.set(key, {
+          ...lap,
+          track_name: race.track_name
+        });
+      }
+    });
   });
 
   const bestRecords = [...bestByTrack.values()]
-    .sort((a, b) => a.track_name.localeCompare(b.track_name, "ru"));
+    .sort((a, b) =>
+      a.track_name.localeCompare(b.track_name, "ru")
+    );
 
   // Количество побед каждого гонщика.
   const wins = {};
 
-  gt3Records.forEach(record => {
-    const name = record.winner_name.trim();
+  gt3Races.forEach(race => {
+    const name = String(race.winner_name || "").trim();
     if (!name) return;
 
     wins[name] = (wins[name] || 0) + 1;
@@ -975,67 +1198,135 @@ function renderGT3Records() {
 
   const leaderboard = Object.entries(wins)
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ru"));
+    .sort((a, b) =>
+      b.count - a.count ||
+      a.name.localeCompare(b.name, "ru")
+    );
+
+  // История всех гонок и хот-лапов.
+  const history = [...gt3Races].sort((a, b) => {
+    const eventA = gt3Events.find(e => e.id === a.event_id);
+    const eventB = gt3Events.find(e => e.id === b.event_id);
+
+    return new Date(eventB?.created_at || b.created_at) -
+      new Date(eventA?.created_at || a.created_at);
+  });
 
   container.innerHTML = `
     <h3 class="record-section-title">Лучшие хот-лапы по трассам</h3>
 
-    <div class="records-table-wrap">
-      <table class="records-table">
-        <thead>
-          <tr>
-            <th>Трасса</th>
-            <th>Пилот</th>
-            <th>Автомобиль</th>
-            <th>Время</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${bestRecords.map(record => `
+    ${bestRecords.length ? `
+      <div class="records-table-wrap">
+        <table class="records-table">
+          <thead>
             <tr>
-              <td>${escapeHtml(record.track_name)}</td>
-              <td>${escapeHtml(record.hotlap_driver)}</td>
-              <td>${escapeHtml(record.car_name || "—")}</td>
-              <td class="records-time">${formatLapTime(record.hotlap_ms)}</td>
+              <th>Трасса</th>
+              <th>Пилот</th>
+              <th>Автомобиль</th>
+              <th>Время</th>
             </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            ${bestRecords.map(record => `
+              <tr>
+                <td>${escapeHtml(record.track_name)}</td>
+                <td>${escapeHtml(record.driver_name)}</td>
+                <td>${escapeHtml(record.car_name || "—")}</td>
+                <td class="records-time">${formatLapTime(record.lap_ms)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : `
+      <div class="record-empty">Хот-лапы пока не добавлены.</div>
+    `}
 
     <h3 class="record-section-title">Рейтинг победителей GT3</h3>
 
-    <div class="records-table-wrap">
-      <table class="records-table">
-        <thead>
-          <tr>
-            <th>Место</th>
-            <th>Гонщик</th>
-            <th>Победы</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${leaderboard.map((item, index) => `
+    ${leaderboard.length ? `
+      <div class="records-table-wrap">
+        <table class="records-table">
+          <thead>
             <tr>
-              <td>${index + 1}</td>
-              <td>${escapeHtml(item.name)}</td>
-              <td>${item.count}</td>
+              <th>Место</th>
+              <th>Гонщик</th>
+              <th>Победы</th>
             </tr>
-          `).join("")}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${leaderboard.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(item.name)}</td>
+                <td>${item.count}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : `
+      <div class="record-empty">Победители пока не внесены.</div>
+    `}
+
+    <h3 class="record-section-title">История гонок и хот-лапов</h3>
+
+    <div class="record-history">
+      ${history.map(race => {
+        const laps = getRaceLaps(race.id);
+
+        return `
+          <div class="gt3-history-card">
+            <div class="gt3-history-heading">
+              ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
+            </div>
+
+            <div class="gt3-history-sub">
+              ${escapeHtml(getRaceDate(race))} · ${escapeHtml(race.track_name)}
+            </div>
+
+            <div>
+              Победитель: <strong>${escapeHtml(race.winner_name || "—")}</strong>
+            </div>
+
+            ${laps.length ? `
+              <div class="gt3-lap-list">
+                ${laps.map(lap => `
+                  <div class="gt3-lap-item">
+                    <div class="gt3-lap-main">
+                      <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
+                      <div class="gt3-lap-meta">
+                        ${escapeHtml(lap.car_name || "Автомобиль не указан")}
+                      </div>
+                    </div>
+                    <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
+                  </div>
+                `).join("")}
+              </div>
+            ` : `
+              <div class="hint" style="margin-top:10px">Хот-лапы не внесены.</div>
+            `}
+          </div>
+        `;
+      }).join("")}
     </div>
 
-    <div class="hint" style="margin-top:12px">
-      Учтено гонок GT3: ${gt3Records.length}.
+    <div class="hint" style="margin-top:14px">
+      Учтено гонок GT3: ${gt3Races.length}. Хот-лапов: ${gt3Laps.length}.
     </div>
   `;
 }
 
-// Админская форма внесения результатов.
+// Форма внесения результатов текущего гоночного вечера.
 async function renderGT3EntryForms() {
   const container = $("gt3-entry-content");
-  if (!container || !currentEvent || !isAdmin) return;
+  if (!container || !isAdmin) return;
+
+  if (!currentEvent) {
+    container.innerHTML =
+      '<div class="record-empty">Нет активного гоночного вечера.</div>';
+    return;
+  }
 
   const result = currentEvent.result;
 
@@ -1055,9 +1346,9 @@ async function renderGT3EntryForms() {
     isGT3: isGT3Class(classes[index] ?? classes[0])
   }));
 
-  const gt3Races = races.filter(race => race.isGT3);
+  const gt3Only = races.filter(race => race.isGT3);
 
-  if (!gt3Races.length) {
+  if (!gt3Only.length) {
     container.innerHTML = `
       <div class="record-empty">
         В этом вечере не выпал класс GT3. Результаты не будут добавлены в GT3-статистику.
@@ -1066,22 +1357,16 @@ async function renderGT3EntryForms() {
     return;
   }
 
-  const { data: saved, error } = await sb
-    .from("gt3_race_results")
-    .select("*")
-    .eq("event_id", currentEvent.id);
+  container.innerHTML = gt3Only.map(race => {
+    const saved = gt3Races.find(item =>
+      item.event_id === currentEvent.id &&
+      item.race_number === race.number
+    );
 
-  if (error) {
-    container.innerHTML =
-      `<div class="record-empty">Ошибка загрузки сохранённых результатов: ${escapeHtml(error.message)}</div>`;
-    return;
-  }
-
-  container.innerHTML = gt3Races.map(race => {
-    const old = (saved || []).find(item => item.race_number === race.number);
+    const laps = saved ? getRaceLaps(saved.id) : [];
 
     return `
-      <div class="admin-race-form">
+      <div class="gt3-race-card">
         <h3>Гонка ${race.number} · ${escapeHtml(race.track)}</h3>
         <div class="hint">Класс: ${escapeHtml(race.carClass)}</div>
 
@@ -1091,56 +1376,100 @@ async function renderGT3EntryForms() {
             id="gt3-winner-${race.number}"
             maxlength="50"
             placeholder="Ник победителя"
-            value="${escapeHtml(old?.winner_name || "")}"
-          >
-        </div>
-
-        <div class="field">
-          <label>Обладатель хот-лапа</label>
-          <input
-            id="gt3-driver-${race.number}"
-            maxlength="50"
-            placeholder="Ник обладателя лучшего круга"
-            value="${escapeHtml(old?.hotlap_driver || "")}"
-          >
-        </div>
-
-        <div class="field">
-          <label>Время хот-лапа (например, 1:42.381)</label>
-          <input
-            id="gt3-time-${race.number}"
-            maxlength="12"
-            placeholder="1:42.381"
-            value="${old ? formatLapTime(old.hotlap_ms) : ""}"
-          >
-        </div>
-
-        <div class="field">
-          <label>Автомобиль</label>
-          <input
-            id="gt3-car-${race.number}"
-            maxlength="80"
-            placeholder="Например, BMW M4 GT3"
-            value="${escapeHtml(old?.car_name || "")}"
+            value="${escapeHtml(saved?.winner_name || "")}"
           >
         </div>
 
         <div class="actions">
-          <button class="btn primary" data-save-gt3="${race.number}">
-            ${old ? "Обновить результат" : "Сохранить результат"}
+          <button class="btn primary" data-save-winner="${race.number}">
+            ${saved ? "Обновить победителя" : "Сохранить победителя"}
           </button>
         </div>
+
+        ${saved ? `
+          <div class="record-section-title">Хот-лапы этой гонки</div>
+
+          <div class="hint">
+            Каждый круг сохраняется отдельной записью. Добавление нового круга не перезаписывает старые.
+          </div>
+
+          <div class="gt3-lap-edit">
+            <input
+              id="new-lap-driver-${race.number}"
+              maxlength="50"
+              placeholder="Ник пилота"
+            >
+            <input
+              id="new-lap-time-${race.number}"
+              maxlength="12"
+              placeholder="Время 1:42.381"
+            >
+            <input
+              id="new-lap-car-${race.number}"
+              maxlength="80"
+              placeholder="Автомобиль"
+            >
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" data-add-lap="${race.number}">
+              Добавить хот-лап
+            </button>
+          </div>
+
+          ${laps.length ? `
+            <div class="gt3-lap-list">
+              ${laps.map(lap => `
+                <div class="gt3-lap-item">
+                  <div class="gt3-lap-main">
+                    <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
+                    <div class="gt3-lap-meta">${escapeHtml(lap.car_name || "Автомобиль не указан")}</div>
+                    <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
+                  </div>
+                  <div class="record-actions">
+                    <button class="btn" data-edit-lap="${lap.id}">Редактировать</button>
+                    <button class="btn danger" data-delete-lap="${lap.id}">Удалить</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          ` : `
+            <div class="record-empty" style="margin-top:10px">
+              Хот-лапов пока нет.
+            </div>
+          `}
+        ` : `
+          <div class="notice">
+            Сначала сохрани победителя гонки. После этого можно будет добавлять хот-лапы.
+          </div>
+        `}
       </div>
     `;
   }).join("");
 
-  document.querySelectorAll("[data-save-gt3]").forEach(button => {
+  document.querySelectorAll("[data-save-winner]").forEach(button => {
     button.onclick = () =>
-      saveGT3RaceResult(Number(button.dataset.saveGt3));
+      saveGT3Winner(Number(button.dataset.saveWinner));
+  });
+
+  document.querySelectorAll("[data-add-lap]").forEach(button => {
+    button.onclick = () =>
+      addGT3Lap(Number(button.dataset.addLap));
+  });
+
+  document.querySelectorAll("[data-edit-lap]").forEach(button => {
+    button.onclick = () =>
+      editGT3Lap(button.dataset.editLap);
+  });
+
+  document.querySelectorAll("[data-delete-lap]").forEach(button => {
+    button.onclick = () =>
+      deleteGT3Lap(button.dataset.deleteLap);
   });
 }
 
-async function saveGT3RaceResult(raceNumber) {
+// Сохраняем победителя. Одна запись на одну гонку вечера.
+async function saveGT3Winner(raceNumber) {
   if (!currentEvent || !isAdmin) return;
 
   const result = currentEvent.result;
@@ -1151,7 +1480,6 @@ async function saveGT3RaceResult(raceNumber) {
 
   const tracks = resultValues(result.track);
   const classes = resultValues(result.car_class);
-
   const classId = classes[raceNumber - 1] ?? classes[0];
 
   if (!isGT3Class(classId)) {
@@ -1164,12 +1492,61 @@ async function saveGT3RaceResult(raceNumber) {
   );
 
   const winner = $(`gt3-winner-${raceNumber}`).value.trim();
-  const driver = $(`gt3-driver-${raceNumber}`).value.trim();
-  const timeText = $(`gt3-time-${raceNumber}`).value.trim();
-  const car = $(`gt3-car-${raceNumber}`).value.trim();
 
-  if (!winner || !driver || !timeText) {
-    alert("Заполни победителя, обладателя хот-лапа и время.");
+  if (!winner) {
+    alert("Введи ник победителя.");
+    return;
+  }
+
+  const button = document.querySelector(
+    `[data-save-winner="${raceNumber}"]`
+  );
+
+  if (button) button.disabled = true;
+
+  const { error } = await sb
+    .from("gt3_race_results")
+    .upsert({
+      event_id: currentEvent.id,
+      race_number: raceNumber,
+      track_name: trackName,
+      winner_name: winner
+    }, {
+      onConflict: "event_id,race_number"
+    });
+
+  if (error) {
+    if (button) button.disabled = false;
+    alert("Не удалось сохранить победителя: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  await renderGT3EntryForms();
+
+  alert(`Победитель гонки ${raceNumber} сохранён.`);
+}
+
+// Добавление отдельного хот-лапа.
+async function addGT3Lap(raceNumber) {
+  if (!isAdmin || !currentEvent) return;
+
+  const race = gt3Races.find(item =>
+    item.event_id === currentEvent.id &&
+    item.race_number === raceNumber
+  );
+
+  if (!race) {
+    alert("Сначала сохрани победителя этой гонки.");
+    return;
+  }
+
+  const driver = $(`new-lap-driver-${raceNumber}`).value.trim();
+  const timeText = $(`new-lap-time-${raceNumber}`).value.trim();
+  const car = $(`new-lap-car-${raceNumber}`).value.trim();
+
+  if (!driver || !timeText) {
+    alert("Заполни ник пилота и время круга.");
     return;
   }
 
@@ -1181,36 +1558,299 @@ async function saveGT3RaceResult(raceNumber) {
   }
 
   const button = document.querySelector(
-    `[data-save-gt3="${raceNumber}"]`
+    `[data-add-lap="${raceNumber}"]`
   );
 
   if (button) button.disabled = true;
 
   const { error } = await sb
-    .from("gt3_race_results")
-    .upsert({
-      event_id: currentEvent.id,
-      race_number: raceNumber,
-      track_name: trackName,
-      winner_name: winner,
-      hotlap_driver: driver,
-      hotlap_ms: lapMs,
+    .from("gt3_laps")
+    .insert({
+      race_result_id: race.id,
+      driver_name: driver,
+      lap_ms: lapMs,
       car_name: car
-    }, {
-      onConflict: "event_id,race_number"
     });
 
   if (error) {
     if (button) button.disabled = false;
-    alert("Не удалось сохранить результат: " + error.message);
+    alert("Не удалось добавить хот-лап: " + error.message);
     return;
   }
 
   await loadGT3Records();
   await renderGT3EntryForms();
-  await loadResult();
 
-  alert(`Результат гонки ${raceNumber} сохранён.`);
+  alert("Хот-лап добавлен в историю.");
+}
+
+// Редактирование конкретного круга по его ID.
+async function editGT3Lap(lapId) {
+  if (!isAdmin) return;
+
+  const lap = gt3Laps.find(item => item.id === lapId);
+  if (!lap) {
+    alert("Запись не найдена. Обнови страницу.");
+    return;
+  }
+
+  const driver = prompt("Пилот:", lap.driver_name);
+  if (driver === null) return;
+
+  const timeText = prompt("Время круга (например, 1:42.381):", formatLapTime(lap.lap_ms));
+  if (timeText === null) return;
+
+  const car = prompt("Автомобиль:", lap.car_name || "");
+  if (car === null) return;
+
+  const cleanDriver = driver.trim();
+  const lapMs = parseLapTime(timeText);
+
+  if (!cleanDriver || !lapMs) {
+    alert("Проверь ник пилота и формат времени.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("gt3_laps")
+    .update({
+      driver_name: cleanDriver,
+      lap_ms: lapMs,
+      car_name: car.trim()
+    })
+    .eq("id", lapId);
+
+  if (error) {
+    alert("Не удалось изменить хот-лап: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  await renderGT3EntryForms();
+
+  alert("Хот-лап обновлён. Рекорды пересчитаны.");
+}
+
+// Удаление только выбранного круга.
+async function deleteGT3Lap(lapId) {
+  if (!isAdmin) return;
+
+  const lap = gt3Laps.find(item => item.id === lapId);
+  if (!lap) return;
+
+  if (!confirm(
+    `Удалить хот-лап ${lap.driver_name} — ${formatLapTime(lap.lap_ms)}?\n\nЭто действие нельзя отменить.`
+  )) {
+    return;
+  }
+
+  const { error } = await sb
+    .from("gt3_laps")
+    .delete()
+    .eq("id", lapId);
+
+  if (error) {
+    alert("Не удалось удалить хот-лап: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  await renderGT3EntryForms();
+
+  alert("Хот-лап удалён. Рекорды пересчитаны.");
+}
+
+// Полная административная история: можно изменить победителя,
+// трассу и любой круг любого гоночного вечера.
+function renderGT3AdminHistory() {
+  const container = $("gt3-admin-history-content");
+  if (!container || !isAdmin) return;
+
+  if (!gt3Races.length) {
+    container.innerHTML =
+      '<div class="record-empty">История GT3 пока пуста.</div>';
+    return;
+  }
+
+  container.innerHTML = [...gt3Races]
+    .sort((a, b) => {
+      const eventA = gt3Events.find(e => e.id === a.event_id);
+      const eventB = gt3Events.find(e => e.id === b.event_id);
+
+      return new Date(eventB?.created_at || b.created_at) -
+        new Date(eventA?.created_at || a.created_at);
+    })
+    .map(race => {
+      const laps = getRaceLaps(race.id);
+
+      return `
+        <div class="gt3-history-card">
+          <div class="gt3-history-heading">
+            ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
+          </div>
+
+          <div class="gt3-history-sub">
+            ${escapeHtml(getRaceDate(race))}
+          </div>
+
+          <div class="gt3-admin-fields">
+            <div class="field">
+              <label>Трасса</label>
+              <input
+                id="history-track-${race.id}"
+                maxlength="100"
+                value="${escapeHtml(race.track_name)}"
+              >
+            </div>
+
+            <div class="field">
+              <label>Победитель</label>
+              <input
+                id="history-winner-${race.id}"
+                maxlength="50"
+                value="${escapeHtml(race.winner_name)}"
+              >
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" data-save-race-history="${race.id}">
+              Сохранить гонку
+            </button>
+          </div>
+
+          <div class="record-section-title">
+            Хот-лапы (${laps.length})
+          </div>
+
+          ${laps.length ? laps.map(lap => `
+            <div class="gt3-history-lap">
+              <div class="gt3-admin-fields">
+                <div class="field">
+                  <label>Пилот</label>
+                  <input
+                    id="history-lap-driver-${lap.id}"
+                    maxlength="50"
+                    value="${escapeHtml(lap.driver_name)}"
+                  >
+                </div>
+
+                <div class="field">
+                  <label>Время</label>
+                  <input
+                    id="history-lap-time-${lap.id}"
+                    maxlength="12"
+                    value="${formatLapTime(lap.lap_ms)}"
+                  >
+                </div>
+
+                <div class="field">
+                  <label>Автомобиль</label>
+                  <input
+                    id="history-lap-car-${lap.id}"
+                    maxlength="80"
+                    value="${escapeHtml(lap.car_name || "")}"
+                  >
+                </div>
+              </div>
+
+              <div class="gt3-lap-actions">
+                <button class="btn primary" data-save-history-lap="${lap.id}">
+                  Сохранить круг
+                </button>
+                <button class="btn danger" data-delete-history-lap="${lap.id}">
+                  Удалить круг
+                </button>
+              </div>
+            </div>
+          `).join("") : `
+            <div class="hint">В этой гонке пока нет хот-лапов.</div>
+          `}
+        </div>
+      `;
+    }).join("");
+
+  document.querySelectorAll("[data-save-race-history]").forEach(button => {
+    button.onclick = () =>
+      updateGT3RaceHistory(button.dataset.saveRaceHistory);
+  });
+
+  document.querySelectorAll("[data-save-history-lap]").forEach(button => {
+    button.onclick = () =>
+      updateGT3LapHistory(button.dataset.saveHistoryLap);
+  });
+
+  document.querySelectorAll("[data-delete-history-lap]").forEach(button => {
+    button.onclick = () =>
+      deleteGT3Lap(button.dataset.deleteHistoryLap);
+  });
+}
+
+async function updateGT3RaceHistory(raceId) {
+  if (!isAdmin) return;
+
+  const race = gt3Races.find(item => item.id === raceId);
+  if (!race) return;
+
+  const trackName = $(`history-track-${raceId}`).value.trim();
+  const winnerName = $(`history-winner-${raceId}`).value.trim();
+
+  if (!trackName || !winnerName) {
+    alert("Заполни трассу и имя победителя.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("gt3_race_results")
+    .update({
+      track_name: trackName,
+      winner_name: winnerName
+    })
+    .eq("id", raceId);
+
+  if (error) {
+    alert("Не удалось обновить гонку: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  await renderGT3EntryForms();
+
+  alert("Данные гонки обновлены.");
+}
+
+async function updateGT3LapHistory(lapId) {
+  if (!isAdmin) return;
+
+  const driver = $(`history-lap-driver-${lapId}`).value.trim();
+  const timeText = $(`history-lap-time-${lapId}`).value.trim();
+  const car = $(`history-lap-car-${lapId}`).value.trim();
+
+  const lapMs = parseLapTime(timeText);
+
+  if (!driver || !lapMs) {
+    alert("Проверь имя пилота и формат времени.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("gt3_laps")
+    .update({
+      driver_name: driver,
+      lap_ms: lapMs,
+      car_name: car
+    })
+    .eq("id", lapId);
+
+  if (error) {
+    alert("Не удалось обновить круг: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  await renderGT3EntryForms();
+
+  alert("Хот-лап обновлён. Рекорды пересчитаны.");
 }
 
 // Выводим текущую жеребьёвку и рекорд GT3 под каждой трассой.
@@ -1282,11 +1922,11 @@ async function loadResult() {
                   <div class="record-line">
                     <div>
                       <div class="record-driver">
-                        ${escapeHtml(record.hotlap_driver)}
+                        ${escapeHtml(record.driver_name)}
                         · ${escapeHtml(record.car_name || "Автомобиль не указан")}
                       </div>
                     </div>
-                    <div class="record-time">${formatLapTime(record.hotlap_ms)}</div>
+                    <div class="record-time">${formatLapTime(record.lap_ms)}</div>
                   </div>
                 ` : `
                   <div class="record-driver" style="margin-top:5px">
@@ -1415,6 +2055,8 @@ async function loadVoteStats() {
 }
 
 async function loadHistory() {
+  if (!currentEvent) return;
+
   const { data, error } = await sb
     .from("events")
     .select("title,result,created_at")
