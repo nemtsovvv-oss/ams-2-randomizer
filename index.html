@@ -15,7 +15,7 @@ body{margin:0;background:radial-gradient(ellipse at 80% 0%,#20394a 0,transparent
 .status{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:5px 9px;color:var(--muted)}
 h1{font-size:clamp(36px,7vw,64px);line-height:.95;letter-spacing:-.06em;margin:0 0 12px}
 .lead{color:var(--muted);max-width:680px;margin-bottom:25px}
-.tabs{display:flex;gap:8px;margin:22px 0}
+.tabs{display:flex;gap:8px;margin:22px 0;flex-wrap:wrap}
 .tab,.btn{border:1px solid var(--line);background:#1b2a36;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700}
 .tab.active{background:var(--accent);color:#14200c;border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:#14200c;border-color:var(--accent)}
@@ -71,7 +71,12 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 .admin-race-form:first-of-type{border-top:0;margin-top:8px;padding-top:0}
 .admin-race-form h3{margin:0 0 4px;font-size:15px}
 .record-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-@media(max-width:760px){.cols{grid-template-columns:1fr}.wrap{padding-top:18px}.tabs{flex-wrap:wrap}.stat-row{grid-template-columns:minmax(80px,1fr) 1.3fr auto;gap:7px}.record-highlight .record-line{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:760px){
+  .cols{grid-template-columns:1fr}
+  .wrap{padding-top:18px}
+  .stat-row{grid-template-columns:minmax(80px,1fr) 1.3fr auto;gap:7px}
+  .record-highlight .record-line{align-items:flex-start;flex-direction:column;gap:2px}
+}
 </style>
 </head>
 <body>
@@ -89,6 +94,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
   <button class="tab" data-tab="result">Результат</button>
   <button class="tab" data-tab="records">Рекорды GT3</button>
   <button class="tab" data-tab="admin">Администрирование</button>
+  <button class="tab hidden" data-tab="gt3-admin">Управление хот-лапами</button>
  </div>
 
  <section id="vote">
@@ -132,7 +138,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
   <div class="panel">
    <div class="eyebrow">AMS2 / GT3</div>
    <h2 style="font-size:28px;margin-top:7px">Таблица рекордов</h2>
-   <div class="hint">Лучшие хот-лапы GT3 на каждой трассе, статистика победителей и полная история гонок.</div>
+   <div class="hint">Лучшие хот-лапы GT3 на каждой трассе и полная история кругов.</div>
    <div id="gt3-records-content">
     <div class="record-empty">Загружаем рекорды…</div>
    </div>
@@ -142,7 +148,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
  <section id="admin" class="hidden">
   <div class="panel" id="login-panel">
    <h2>Вход администратора</h2>
-   <div class="hint">Вход по email и паролю Supabase Auth. Не используйте пароль как проверку только в браузере.</div>
+   <div class="hint">Вход по email и паролю Supabase Auth.</div>
    <div class="field">
     <label>Email администратора</label>
     <input id="admin-email" type="email" placeholder="you@example.com">
@@ -178,24 +184,13 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
    </div>
 
    <div class="panel" id="gt3-entry-panel">
-    <h2>Итоги гонок GT3</h2>
+    <h2>Хот-лапы текущего вечера</h2>
     <div class="hint">
      Форма появится только для гонок, в которых выпал класс GT3.
-     Сначала сохрани победителя, затем добавляй хот-лапы по одному.
+     Каждый круг сохраняется отдельной записью.
     </div>
     <div id="gt3-entry-content">
      <div class="record-empty">Сначала проведи жеребьёвку.</div>
-    </div>
-   </div>
-
-   <div class="panel" id="gt3-admin-history-panel">
-    <h2>Редактирование истории GT3</h2>
-    <div class="hint">
-     Здесь можно исправлять трассы, победителей и отдельные хот-лапы прошлых гоночных вечеров.
-     Изменения автоматически пересчитывают таблицу рекордов.
-    </div>
-    <div id="gt3-admin-history-content">
-     <div class="record-empty">Загружаем историю…</div>
     </div>
    </div>
 
@@ -208,6 +203,21 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
     <div class="actions">
      <button class="btn danger" id="reset-votes">Удалить голоса текущего вечера</button>
     </div>
+   </div>
+  </div>
+ </section>
+
+ <section id="gt3-admin" class="hidden">
+  <div class="panel">
+   <div class="eyebrow">AMS2 / ADMIN</div>
+   <h2 style="font-size:28px;margin-top:7px">Управление хот-лапами</h2>
+   <div class="hint">
+    Здесь можно менять трассы, редактировать и удалять отдельные круги,
+    а также добавлять круги в любую сохранённую гонку.
+    Публичная таблица рекордов обновляется автоматически.
+   </div>
+   <div id="gt3-admin-history-content">
+    <div class="record-empty">Загружаем историю…</div>
    </div>
   </div>
  </section>
