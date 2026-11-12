@@ -35,10 +35,28 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// Преобразует UUID варианта в его название.
 function optionLabel(id) {
   const option = categories.find(o => o.id === id);
-  return option ? option.label : id;
+  return option ? option.label : String(id);
+}
+
+function resultValues(value) {
+  if (Array.isArray(value)) return value;
+  if (value) return [value, value];
+  return [];
+}
+
+function normalizedVotes(selections, category) {
+  const value = selections?.[category];
+
+  if (Array.isArray(value)) {
+    if (value.length === 1) return [value[0], value[0]];
+    return value.slice(0, 2);
+  }
+
+  if (value) return [value, value];
+
+  return [];
 }
 
 function tab(name) {
@@ -49,6 +67,11 @@ function tab(name) {
   ["vote", "result", "admin"].forEach(x =>
     $(x).classList.toggle("hidden", x !== name)
   );
+
+  if (name === "result" && currentEvent) {
+    loadResult();
+    loadVoteStats();
+  }
 }
 
 document.querySelectorAll(".tab").forEach(b => {
@@ -103,6 +126,7 @@ async function init() {
   await loadOptions();
   await loadVotesCount();
   await loadResult();
+  await loadVoteStats();
 
   if (currentUser) {
     await loadAdmin();
@@ -126,13 +150,18 @@ async function loadOptions() {
   $("vote-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
       <h2>${labels[cat]}</h2>
-      <div class="hint">Выбери один вариант</div>
+      <div class="hint">Выбери до двух вариантов. Один выбранный вариант считается за два голоса.</div>
       <div class="options">
         ${categories
           .filter(o => o.category === cat)
           .map(o => `
             <label class="option">
-              <input type="radio" name="${cat}" value="${o.id}">
+              <input
+                type="checkbox"
+                name="${cat}"
+                value="${o.id}"
+                data-category="${cat}"
+              >
               <span>${escapeHtml(o.label)}</span>
             </label>
           `).join("") ||
@@ -140,6 +169,21 @@ async function loadOptions() {
       </div>
     </div>
   `).join("");
+
+  categoryOrder.forEach(cat => {
+    document.querySelectorAll(`input[name="${cat}"]`).forEach(input => {
+      input.addEventListener("change", () => {
+        const checked = document.querySelectorAll(
+          `input[name="${cat}"]:checked`
+        );
+
+        if (checked.length > 2) {
+          input.checked = false;
+          alert("Можно выбрать не больше двух вариантов.");
+        }
+      });
+    });
+  });
 }
 
 async function loadVotesCount() {
@@ -169,16 +213,22 @@ $("submit-vote").onclick = async () => {
   const selections = {};
 
   for (const cat of categoryOrder) {
-    const el = document.querySelector(
-      `input[name="${cat}"]:checked`
-    );
+    const checked = [
+      ...document.querySelectorAll(`input[name="${cat}"]:checked`)
+    ].map(el => el.value);
 
-    if (!el) {
-      alert("Выбери вариант во всех категориях");
-      return;
+    // Пустая категория не получает голосов.
+    // Один вариант дублируется, чтобы получить два голоса.
+    if (checked.length === 1) {
+      selections[cat] = [checked[0], checked[0]];
+    } else {
+      selections[cat] = checked;
     }
+  }
 
-    selections[cat] = el.value;
+  if (!categoryOrder.some(cat => selections[cat].length > 0)) {
+    alert("Выбери хотя бы один вариант.");
+    return;
   }
 
   const { error } = await sb
@@ -198,6 +248,8 @@ $("submit-vote").onclick = async () => {
   }
 
   await loadVotesCount();
+  await loadVoteStats();
+
   alert("Голос сохранён. Его можно изменить до закрытия голосования.");
 };
 
@@ -370,7 +422,7 @@ $("toggle-event").onclick = async () => {
 };
 
 $("draw").onclick = async () => {
-  if (!confirm("Закрыть голосование и провести weighted-жеребьёвку?")) {
+  if (!confirm("Закрыть голосование и провести жеребьёвку для двух гонок?")) {
     return;
   }
 
@@ -399,11 +451,11 @@ $("reset-votes").onclick = async () => {
     alert(error.message);
   } else {
     await loadVotesCount();
+    await loadVoteStats();
     alert("Голоса удалены");
   }
 };
 
-// Результат: вместо UUID показываем названия вариантов.
 async function loadResult() {
   const { data, error } = await sb
     .from("events")
@@ -427,15 +479,98 @@ async function loadResult() {
     return;
   }
 
+  const tracks = resultValues(r.track);
+  const classes = resultValues(r.car_class);
+  const weather = resultValues(r.weather);
+
   $("result-card").innerHTML = `
-    <div class="eyebrow">RACE SELECTED</div>
-    <h2>${escapeHtml(optionLabel(r.track))}</h2>
-    <p>Класс: <strong>${escapeHtml(optionLabel(r.car_class))}</strong></p>
-    <p>Погода: <strong>${escapeHtml(optionLabel(r.weather))}</strong></p>
+    <div class="eyebrow">RACE NIGHT / RESULTS</div>
+    <div class="cols" style="margin-top:12px">
+      ${[0, 1].map(i => `
+        <div class="panel">
+          <div class="eyebrow">RACE ${i + 1}</div>
+          <h2>${escapeHtml(optionLabel(tracks[i] ?? tracks[0] ?? "—"))}</h2>
+          <p>Класс: <strong>${escapeHtml(optionLabel(classes[i] ?? classes[0] ?? "—"))}</strong></p>
+          <p>Погода: <strong>${escapeHtml(optionLabel(weather[i] ?? weather[0] ?? "—"))}</strong></p>
+        </div>
+      `).join("")}
+    </div>
   `;
 }
 
-// История тоже показывает названия, а не UUID.
+async function loadVoteStats() {
+  if (!currentEvent) return;
+
+  const { data, error } = await sb
+    .from("votes")
+    .select("selections")
+    .eq("event_id", currentEvent.id);
+
+  if (error) {
+    console.error("Ошибка загрузки статистики", error);
+    $("vote-stats-content").innerHTML =
+      '<div class="muted">Не удалось загрузить статистику голосов.</div>';
+    return;
+  }
+
+  const votes = data || [];
+
+  if (!votes.length) {
+    $("vote-stats-content").innerHTML =
+      '<div class="muted">Пока никто не проголосовал.</div>';
+    return;
+  }
+
+  let html = "";
+
+  for (const cat of categoryOrder) {
+    const tally = {};
+
+    votes.forEach(vote => {
+      normalizedVotes(vote.selections, cat).forEach(id => {
+        tally[id] = (tally[id] || 0) + 1;
+      });
+    });
+
+    const entries = Object.entries(tally)
+      .map(([id, count]) => ({
+        id,
+        count,
+        label: optionLabel(id)
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const total = entries.reduce((sum, item) => sum + item.count, 0);
+
+    html += `
+      <div class="stats-category">
+        <h3>${labels[cat]}</h3>
+        ${entries.length ? entries.map(item => {
+          const percent = total
+            ? Math.round(item.count / total * 100)
+            : 0;
+
+          return `
+            <div class="stat-row">
+              <div class="stat-name">${escapeHtml(item.label)}</div>
+              <div class="stat-track">
+                <div class="stat-fill" style="width:${percent}%"></div>
+              </div>
+              <div class="stat-value">${item.count} · ${percent}%</div>
+            </div>
+          `;
+        }).join("") : '<div class="muted">Нет голосов в этой категории.</div>'}
+        <div class="hint">Всего голосов в категории: ${total}</div>
+      </div>
+    `;
+  }
+
+  $("vote-stats-content").innerHTML = `
+    <div class="hint">Участников: ${votes.length}. Каждый участник даёт до двух голосов в каждой категории.</div>
+    ${html}
+  `;
+}
+
 async function loadHistory() {
   const { data, error } = await sb
     .from("events")
@@ -449,19 +584,22 @@ async function loadHistory() {
     return;
   }
 
-  $("history").innerHTML = (data || []).map(e => `
-    <div class="item">
-      <span>
-        ${escapeHtml(e.title)} ·
-        ${e.result
-          ? escapeHtml(optionLabel(e.result.track))
-          : "Без результата"}
-      </span>
-      <small class="muted">
-        ${new Date(e.created_at).toLocaleDateString("ru-RU")}
-      </small>
-    </div>
-  `).join("") || '<div class="muted">История пока пуста</div>';
+  $("history").innerHTML = (data || []).map(e => {
+    const track = resultValues(e.result?.track);
+    const trackNames = track.map(optionLabel).join(" / ");
+
+    return `
+      <div class="item">
+        <span>
+          ${escapeHtml(e.title)} ·
+          ${e.result ? escapeHtml(trackNames) : "Без результата"}
+        </span>
+        <small class="muted">
+          ${new Date(e.created_at).toLocaleDateString("ru-RU")}
+        </small>
+      </div>
+    `;
+  }).join("") || '<div class="muted">История пока пуста</div>';
 }
 
 if (sb) {
