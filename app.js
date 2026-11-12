@@ -1,4 +1,3 @@
-
 const SUPABASE_URL = "https://edjwnpbjmpacftxbglbx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_7C7FbFcevgoVAL3dNxdXoQ_baIQe8Bz";
 
@@ -15,6 +14,7 @@ const $ = id => document.getElementById(id);
 let currentEvent = null;
 let categories = [];
 let currentUser = null;
+let isAdmin = false;
 let isOpen = true;
 
 const categoryOrder = ["track", "car_class", "weather"];
@@ -161,10 +161,40 @@ function installExtraStyles() {
       flex: 0 0 auto;
     }
   `;
+
   document.head.appendChild(style);
 }
 
+// Переключение публичного интерфейса после жеребьёвки.
+function applyEventView() {
+  const hasDrawResult = Boolean(currentEvent?.result);
+  const publicResultsOnly = hasDrawResult && !isAdmin;
+
+  document.querySelectorAll(".tab").forEach(button => {
+    button.classList.toggle(
+      "hidden",
+      publicResultsOnly && button.dataset.tab !== "result"
+    );
+  });
+
+  if (publicResultsOnly) {
+    $("vote").classList.add("hidden");
+    $("admin").classList.add("hidden");
+    $("result").classList.remove("hidden");
+
+    document.querySelectorAll(".tab").forEach(button => {
+      button.classList.toggle("active", button.dataset.tab === "result");
+    });
+  }
+}
+
 function tab(name) {
+  // После жеребьёвки обычный пользователь не может
+  // переключиться на голосование или админку.
+  if (currentEvent?.result && !isAdmin && name !== "result") {
+    name = "result";
+  }
+
   document.querySelectorAll(".tab").forEach(b =>
     b.classList.toggle("active", b.dataset.tab === name)
   );
@@ -181,6 +211,8 @@ function tab(name) {
   if (name === "admin" && currentUser) {
     loadAdmin();
   }
+
+  applyEventView();
 }
 
 document.querySelectorAll(".tab").forEach(b => {
@@ -217,6 +249,7 @@ async function init() {
   }
 
   currentEvent = ev;
+  isAdmin = false;
 
   if (!ev) {
     $("connection").textContent =
@@ -242,6 +275,12 @@ async function init() {
   if (currentUser) {
     await loadAdmin();
   }
+
+  if (!currentEvent.result && !isAdmin) {
+    tab("vote");
+  }
+
+  applyEventView();
 }
 
 // Загружаем все варианты, в том числе отключённые.
@@ -382,6 +421,7 @@ $("submit-vote").onclick = async () => {
     } else {
       alert("Не удалось сохранить голос: " + error.message);
     }
+
     return;
   }
 
@@ -423,9 +463,14 @@ $("login").onclick = async () => {
 
 $("logout").onclick = async () => {
   await sb.auth.signOut();
+
   currentUser = null;
+  isAdmin = false;
+
   $("admin-panel").classList.add("hidden");
   $("login-panel").classList.remove("hidden");
+
+  applyEventView();
 };
 
 async function loadAdmin() {
@@ -445,13 +490,21 @@ async function loadAdmin() {
   }
 
   if (!profile) {
+    isAdmin = false;
+
     msg("login-message", "У этого аккаунта нет прав администратора.");
+
     await sb.auth.signOut();
     currentUser = null;
+
     $("admin-panel").classList.add("hidden");
     $("login-panel").classList.remove("hidden");
+
+    applyEventView();
     return;
   }
+
+  isAdmin = true;
 
   $("login-panel").classList.add("hidden");
   $("admin-panel").classList.remove("hidden");
@@ -466,7 +519,10 @@ async function loadAdmin() {
   ensureAdminVotersPanel();
 
   await loadAdminVoters();
+  ensureAdminResultsPanel();
   await loadHistory();
+
+  applyEventView();
 }
 
 // Список вариантов в админке.
@@ -622,6 +678,64 @@ function ensureAdminVotersPanel() {
   `;
 
   $("admin-categories").insertAdjacentElement("afterend", panel);
+}
+
+// Отдельная панель для очистки результатов текущего вечера.
+function ensureAdminResultsPanel() {
+  if ($("admin-results-panel")) return;
+
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.id = "admin-results-panel";
+
+  panel.innerHTML = `
+    <h2>Результаты жеребьёвки</h2>
+    <div class="hint">
+      Удаляет только результаты двух гонок текущего вечера.
+      Голоса участников и инфографика останутся без изменений.
+    </div>
+    <button class="btn danger" id="clear-results">
+      Удалить результаты
+    </button>
+  `;
+
+  $("admin-voters-panel").insertAdjacentElement("afterend", panel);
+  $("clear-results").onclick = clearCurrentEventResults;
+}
+
+// Очищаем только поле result у текущего события.
+async function clearCurrentEventResults() {
+  if (!currentEvent) return;
+
+  const confirmed = confirm(
+    "Удалить результаты жеребьёвки текущего вечера?\n\n" +
+    "Голоса участников, список голосовавших и инфографика сохранятся."
+  );
+
+  if (!confirmed) return;
+
+  const button = $("clear-results");
+  if (button) button.disabled = true;
+
+  const { error } = await sb
+    .from("events")
+    .update({ result: null })
+    .eq("id", currentEvent.id);
+
+  if (error) {
+    if (button) button.disabled = false;
+    alert("Не удалось удалить результаты: " + error.message);
+    return;
+  }
+
+  currentEvent.result = null;
+
+  await loadResult();
+  applyEventView();
+
+  if (button) button.disabled = false;
+
+  alert("Результаты текущего вечера удалены. Голоса сохранены.");
 }
 
 // Загружаем участников и время их голосования.
@@ -793,6 +907,7 @@ async function loadResult() {
   }
 
   const r = data?.result;
+  currentEvent.result = r || null;
 
   if (!r) {
     $("result-card").innerHTML = `
@@ -836,8 +951,10 @@ async function loadVoteStats() {
 
   if (error) {
     console.error("Ошибка загрузки статистики", error);
+
     $("vote-stats-content").innerHTML =
       '<div class="muted">Не удалось загрузить статистику голосов.</div>';
+
     return;
   }
 
@@ -846,6 +963,7 @@ async function loadVoteStats() {
   if (!votes.length) {
     $("vote-stats-content").innerHTML =
       '<div class="muted">Пока никто не проголосовал.</div>';
+
     return;
   }
 
