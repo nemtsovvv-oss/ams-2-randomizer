@@ -132,7 +132,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
   <div class="panel">
    <div class="eyebrow">AMS2 / GT3</div>
    <h2 style="font-size:28px;margin-top:7px">Таблица рекордов</h2>
-   <div class="hint">Лучшие хот-лапы GT3 на каждой трассе и статистика победителей.</div>
+   <div class="hint">Лучшие хот-лапы GT3 на каждой трассе, статистика победителей и полная история гонок.</div>
    <div id="gt3-records-content">
     <div class="record-empty">Загружаем рекорды…</div>
    </div>
@@ -179,9 +179,23 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 
    <div class="panel" id="gt3-entry-panel">
     <h2>Итоги гонок GT3</h2>
-    <div class="hint">Форма появится только для гонок, в которых выпал класс GT3. Трассы подставляются автоматически из жеребьёвки.</div>
+    <div class="hint">
+     Форма появится только для гонок, в которых выпал класс GT3.
+     Сначала сохрани победителя, затем добавляй хот-лапы по одному.
+    </div>
     <div id="gt3-entry-content">
      <div class="record-empty">Сначала проведи жеребьёвку.</div>
+    </div>
+   </div>
+
+   <div class="panel" id="gt3-admin-history-panel">
+    <h2>Редактирование истории GT3</h2>
+    <div class="hint">
+     Здесь можно исправлять трассы, победителей и отдельные хот-лапы прошлых гоночных вечеров.
+     Изменения автоматически пересчитывают таблицу рекордов.
+    </div>
+    <div id="gt3-admin-history-content">
+     <div class="record-empty">Загружаем историю…</div>
     </div>
    </div>
 
