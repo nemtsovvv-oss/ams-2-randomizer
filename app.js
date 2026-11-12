@@ -25,6 +25,60 @@ const labels = {
   weather: "Погода"
 };
 
+// Дополнительные стили для списка голосовавших.
+function installExtraStyles() {
+  if ($("extra-styles")) return;
+
+  const style = document.createElement("style");
+  style.id = "extra-styles";
+  style.textContent = `
+    .voter-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .voter-card {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0d1720;
+    }
+
+    .voter-name {
+      font-weight: 800;
+      margin-bottom: 9px;
+    }
+
+    .voter-picks {
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .voter-picks strong {
+      color: var(--text);
+    }
+
+    .admin-option {
+      opacity: .65;
+    }
+
+    .admin-option.active-option {
+      opacity: 1;
+    }
+
+    .admin-option small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     "&": "&amp;",
@@ -93,6 +147,8 @@ async function init() {
     return;
   }
 
+  installExtraStyles();
+
   $("connection").textContent = "Подключаемся…";
 
   const { data: ev, error } = await sb
@@ -134,10 +190,11 @@ async function init() {
 }
 
 async function loadOptions() {
+  // Загружаем ВСЕ варианты, чтобы видеть и неактивные
+  // в админке, результатах и истории.
   const { data, error } = await sb
     .from("options")
     .select("id,category,label,active")
-    .eq("active", true)
     .order("sort_order");
 
   if (error) {
@@ -147,13 +204,17 @@ async function loadOptions() {
 
   categories = data || [];
 
+  // В голосовании показываем только активные варианты.
   $("vote-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
       <h2>${labels[cat]}</h2>
-      <div class="hint">Выбери до двух вариантов. Если выберешь один вариант в категории - голос удвоится.</div>
+      <div class="hint">
+        Выбери до двух вариантов. Если выберешь один вариант
+        в категории — голос удвоится.
+      </div>
       <div class="options">
         ${categories
-          .filter(o => o.category === cat)
+          .filter(o => o.category === cat && o.active)
           .map(o => `
             <label class="option">
               <input
@@ -165,11 +226,12 @@ async function loadOptions() {
               <span>${escapeHtml(o.label)}</span>
             </label>
           `).join("") ||
-          '<div class="muted">Пока нет вариантов</div>'}
+          '<div class="muted">Пока нет активных вариантов</div>'}
       </div>
     </div>
   `).join("");
 
+  // Ограничение: максимум два выбора в каждой категории.
   categoryOrder.forEach(cat => {
     document.querySelectorAll(`input[name="${cat}"]`).forEach(input => {
       input.addEventListener("change", () => {
@@ -217,8 +279,6 @@ $("submit-vote").onclick = async () => {
       ...document.querySelectorAll(`input[name="${cat}"]:checked`)
     ].map(el => el.value);
 
-    // Пустая категория не получает голосов.
-    // Один вариант дублируется, чтобы получить два голоса.
     if (checked.length === 1) {
       selections[cat] = [checked[0], checked[0]];
     } else {
@@ -277,7 +337,6 @@ $("login").onclick = async () => {
 
 $("logout").onclick = async () => {
   await sb.auth.signOut();
-
   currentUser = null;
   $("admin-panel").classList.add("hidden");
   $("login-panel").classList.remove("hidden");
@@ -336,13 +395,19 @@ async function loadAdmin() {
         ${categories
           .filter(o => o.category === cat)
           .map(o => `
-            <div class="item">
-              <span>${escapeHtml(o.label)}</span>
-              <button class="btn danger" data-del="${o.id}">
-                Удалить
-              </button>
-            </div>
-          `).join("")}
+            <label class="option admin-option ${o.active ? "active-option" : ""}">
+              <input
+                type="checkbox"
+                data-toggle-option="${o.id}"
+                ${o.active ? "checked" : ""}
+              >
+              <span>
+                ${escapeHtml(o.label)}
+                <small>${o.active ? "Активен — доступен для голосования" : "Отключён — сохранён в базе"}</small>
+              </span>
+            </label>
+          `).join("") ||
+          '<div class="muted">Вариантов пока нет</div>'}
       </div>
     </div>
   `).join("");
@@ -351,8 +416,9 @@ async function loadAdmin() {
     b.onclick = () => addOption(b.dataset.add);
   });
 
-  document.querySelectorAll("[data-del]").forEach(b => {
-    b.onclick = () => deleteOption(b.dataset.del);
+  document.querySelectorAll("[data-toggle-option]").forEach(input => {
+    input.onchange = () =>
+      setOptionActive(input.dataset.toggleOption, input.checked);
   });
 
   await loadHistory();
@@ -364,7 +430,7 @@ async function addOption(cat) {
 
   const { error } = await sb
     .from("options")
-    .insert({ category: cat, label });
+    .insert({ category: cat, label, active: true });
 
   if (error) {
     alert(error.message);
@@ -372,23 +438,21 @@ async function addOption(cat) {
   }
 
   await init();
-  await loadAdmin();
 }
 
-async function deleteOption(id) {
-  if (!confirm("Удалить вариант?")) return;
-
+async function setOptionActive(id, active) {
   const { error } = await sb
     .from("options")
-    .update({ active: false })
+    .update({ active })
     .eq("id", id);
 
   if (error) {
-    alert(error.message);
+    alert("Не удалось изменить статус варианта: " + error.message);
+    await init();
     return;
   }
 
-  await init();
+  await loadOptions();
   await loadAdmin();
 }
 
@@ -489,7 +553,7 @@ async function loadResult() {
       ${[0, 1].map(i => `
         <div class="panel">
           <div class="eyebrow">RACE ${i + 1}</div>
-          <h2>${escapeHtml(optionLabel(tracks[i] ?? tracks[0] ?? "—"))}</h2>
+          <h2>${escapeHtml(optionLabel(tracks[i] ?? "—"))}</h2>
           <p>Класс: <strong>${escapeHtml(optionLabel(classes[i] ?? classes[0] ?? "—"))}</strong></p>
           <p>Погода: <strong>${escapeHtml(optionLabel(weather[i] ?? weather[0] ?? "—"))}</strong></p>
         </div>
@@ -501,10 +565,12 @@ async function loadResult() {
 async function loadVoteStats() {
   if (!currentEvent) return;
 
+  // Загружаем и ники, и сами выборы.
   const { data, error } = await sb
     .from("votes")
-    .select("selections")
-    .eq("event_id", currentEvent.id);
+    .select("nickname,selections")
+    .eq("event_id", currentEvent.id)
+    .order("nickname");
 
   if (error) {
     console.error("Ошибка загрузки статистики", error);
@@ -523,6 +589,7 @@ async function loadVoteStats() {
 
   let html = "";
 
+  // Общая инфографика по категориям.
   for (const cat of categoryOrder) {
     const tally = {};
 
@@ -560,14 +627,65 @@ async function loadVoteStats() {
             </div>
           `;
         }).join("") : '<div class="muted">Нет голосов в этой категории.</div>'}
+
         <div class="hint">Всего голосов в категории: ${total}</div>
       </div>
     `;
   }
 
+  // Индивидуальные голоса каждого участника.
+  const votersHtml = votes.map(vote => {
+    const picksHtml = categoryOrder.map(cat => {
+      const ids = normalizedVotes(vote.selections, cat);
+
+      if (!ids.length) {
+        return `
+          <div>
+            ${labels[cat]}: <strong>—</strong>
+          </div>
+        `;
+      }
+
+      // Группируем одинаковые варианты, чтобы показывать ×2.
+      const grouped = [...new Set(ids)].map(id => {
+        const count = ids.filter(x => x === id).length;
+        return optionLabel(id) + (count > 1 ? ` ×${count}` : "");
+      });
+
+      return `
+        <div>
+          ${labels[cat]}:
+          <strong>${escapeHtml(grouped.join(", "))}</strong>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="voter-card">
+        <div class="voter-name">${escapeHtml(vote.nickname || "Без ника")}</div>
+        <div class="voter-picks">${picksHtml}</div>
+      </div>
+    `;
+  }).join("");
+
   $("vote-stats-content").innerHTML = `
-    <div class="hint">Участников: ${votes.length}. Каждый участник даёт до двух голосов в каждой категории.</div>
+    <div class="hint">
+      Участников: ${votes.length}.
+      Каждый участник даёт до двух голосов в каждой категории.
+    </div>
+
     ${html}
+
+    <div class="stats-category">
+      <h3>Кто за что проголосовал</h3>
+      <div class="hint">
+        Все голоса участников отображаются открыто.
+        Если вариант выбран один раз, он считается за два голоса.
+      </div>
+      <div class="voter-list">
+        ${votersHtml}
+      </div>
+    </div>
   `;
 }
 
