@@ -60,7 +60,6 @@ function normalizedVotes(selections, category) {
   }
 
   if (value) return [value, value];
-
   return [];
 }
 
@@ -93,13 +92,11 @@ function formatLapTime(ms) {
 
 function parseLapTime(value) {
   const match = String(value).trim().match(/^(\d+):([0-5]?\d)(?:[.,](\d{1,3}))?$/);
-
   if (!match) return null;
 
   const minutes = Number(match[1]);
   const seconds = Number(match[2]);
   const fraction = Number((match[3] || "").padEnd(3, "0"));
-
   const result = minutes * 60000 + seconds * 1000 + fraction;
 
   return result > 0 ? result : null;
@@ -116,15 +113,16 @@ function getRaceLaps(raceId) {
 }
 
 function getBestRecord(trackName) {
-  const matchingRaceIds = gt3Races
+  const key = String(trackName || "").trim().toLowerCase();
+
+  const raceIds = gt3Races
     .filter(race =>
-      String(race.track_name || "").trim().toLowerCase() ===
-      String(trackName || "").trim().toLowerCase()
+      String(race.track_name || "").trim().toLowerCase() === key
     )
     .map(race => race.id);
 
   return gt3Laps
-    .filter(lap => matchingRaceIds.includes(lap.race_result_id))
+    .filter(lap => raceIds.includes(lap.race_result_id))
     .sort((a, b) => a.lap_ms - b.lap_ms)[0] || null;
 }
 
@@ -153,252 +151,80 @@ function installExtraStyles() {
   const style = document.createElement("style");
   style.id = "extra-styles";
   style.textContent = `
-    .voter-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .voter-card {
-      padding: 13px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #0d1720;
-    }
-
-    .voter-name {
-      font-weight: 800;
-      margin-bottom: 5px;
-    }
-
-    .voter-time {
-      font-size: 11px;
-      color: var(--accent);
-      margin-bottom: 9px;
-    }
-
-    .voter-picks {
-      display: grid;
-      gap: 5px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .voter-picks strong {
-      color: var(--text);
-    }
-
-    .admin-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 11px;
-      margin-top: 8px;
-    }
-
-    .admin-option input {
-      width: auto;
-      flex: 0 0 auto;
-      margin: 0;
-      accent-color: var(--accent);
-    }
-
-    .admin-option span {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .admin-option small {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-    }
-
-    .admin-option.disabled-option {
-      opacity: .55;
-    }
-
-    .voter-actions {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .voter-actions button,
-    .admin-option button {
-      font-size: 12px;
-    }
-
-    .admin-option button {
-      flex: 0 0 auto;
-    }
-
-    .gt3-race-card {
-      border-top: 1px solid var(--line);
-      padding-top: 15px;
-      margin-top: 15px;
-    }
-
-    .gt3-race-card:first-child {
-      border-top: 0;
-      padding-top: 0;
-      margin-top: 10px;
-    }
-
-    .gt3-lap-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .gt3-lap-item {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) auto;
-      gap: 10px;
-      align-items: center;
-      background: #0d1720;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 11px;
-    }
-
-    .gt3-lap-main {
-      min-width: 0;
-    }
-
-    .gt3-lap-driver {
-      font-weight: 800;
-      overflow-wrap: anywhere;
-    }
-
-    .gt3-lap-meta {
-      color: var(--muted);
-      font-size: 11px;
-      margin-top: 3px;
-    }
-
-    .gt3-lap-time {
-      font-weight: 900;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    .gt3-lap-edit {
-      display: grid;
-      grid-template-columns: repeat(3,minmax(0,1fr));
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .gt3-lap-edit input {
-      min-width: 0;
-    }
-
-    .gt3-lap-actions {
-      display: flex;
-      gap: 6px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      margin-top: 8px;
-    }
-
-    .gt3-lap-actions .btn {
-      padding: 7px 10px;
-      font-size: 12px;
-    }
-
-    .gt3-history-card {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #0d1720;
-      padding: 13px;
-      margin-top: 10px;
-    }
-
-    .gt3-history-heading {
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-
-    .gt3-history-sub {
-      color: var(--muted);
-      font-size: 11px;
-      margin-bottom: 10px;
-    }
-
-    .gt3-admin-fields {
-      display: grid;
-      grid-template-columns: repeat(2,minmax(0,1fr));
-      gap: 8px;
-    }
-
-    .gt3-admin-fields .field {
-      min-width: 0;
-    }
-
-    .gt3-history-lap {
-      border-top: 1px solid var(--line);
-      padding-top: 10px;
-      margin-top: 10px;
-    }
-
-    .gt3-history-lap:first-child {
-      border-top: 0;
-      padding-top: 0;
-    }
-
-    .record-history {
-      display: grid;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    @media(max-width:600px) {
-      .gt3-lap-edit,
-      .gt3-admin-fields {
-        grid-template-columns: 1fr;
-      }
-
-      .gt3-lap-item {
-        grid-template-columns: 1fr;
-      }
-
-      .gt3-lap-time {
-        font-size: 18px;
-      }
+    .voter-list{display:grid;gap:10px;margin-top:14px}
+    .voter-card{padding:13px;border:1px solid var(--line);border-radius:12px;background:#0d1720}
+    .voter-name{font-weight:800;margin-bottom:5px}
+    .voter-time{font-size:11px;color:var(--accent);margin-bottom:9px}
+    .voter-picks{display:grid;gap:5px;font-size:13px;color:var(--muted)}
+    .voter-picks strong{color:var(--text)}
+    .admin-option{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:11px;margin-top:8px}
+    .admin-option input{width:auto;flex:0 0 auto;margin:0;accent-color:var(--accent)}
+    .admin-option span{flex:1;min-width:0}
+    .admin-option small{display:block;color:var(--muted);font-size:10px}
+    .admin-option.disabled-option{opacity:.55}
+    .voter-actions{margin-top:10px;display:flex;justify-content:flex-end}
+    .voter-actions button,.admin-option button{font-size:12px}
+    .admin-option button{flex:0 0 auto}
+    .gt3-race-card{border-top:1px solid var(--line);padding-top:15px;margin-top:15px}
+    .gt3-race-card:first-child{border-top:0;padding-top:0;margin-top:10px}
+    .gt3-lap-list{display:grid;gap:8px;margin-top:12px}
+    .gt3-lap-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:#0d1720;border:1px solid var(--line);border-radius:10px;padding:11px}
+    .gt3-lap-main{min-width:0}
+    .gt3-lap-driver{font-weight:800;overflow-wrap:anywhere}
+    .gt3-lap-meta{color:var(--muted);font-size:11px;margin-top:3px}
+    .gt3-lap-time{font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .gt3-lap-edit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+    .gt3-lap-edit input{min-width:0}
+    .gt3-lap-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+    .gt3-lap-actions .btn{padding:7px 10px;font-size:12px}
+    .gt3-history-card{border:1px solid var(--line);border-radius:12px;background:#0d1720;padding:13px;margin-top:10px}
+    .gt3-history-heading{font-weight:800;margin-bottom:4px}
+    .gt3-history-sub{color:var(--muted);font-size:11px;margin-bottom:10px}
+    .gt3-admin-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .gt3-admin-fields .field{min-width:0}
+    .gt3-history-lap{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+    .gt3-history-lap:first-child{border-top:0;padding-top:0}
+    .record-history{display:grid;gap:12px;margin-top:12px}
+    .gt3-admin-add{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+    .gt3-admin-add h4{font-size:13px;margin:0 0 8px}
+    .admin-page-note{margin-bottom:12px}
+    @media(max-width:600px){
+      .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
+      .gt3-lap-item{grid-template-columns:1fr}
+      .gt3-lap-time{font-size:18px}
     }
   `;
 
   document.head.appendChild(style);
 }
 
-// После жеребьёвки публичным пользователям доступны
-// результаты и рекорды, но не голосование и админка.
+// Публичные пользователи после жеребьёвки видят только результат и рекорды.
 function applyEventView() {
-  const hasDrawResult = Boolean(currentEvent?.result);
-  const publicResultsOnly = hasDrawResult && !isAdmin;
+  const publicResultsOnly = Boolean(currentEvent?.result) && !isAdmin;
 
   document.querySelectorAll(".tab").forEach(button => {
+    const name = button.dataset.tab;
+
     button.classList.toggle(
       "hidden",
-      publicResultsOnly &&
-      ["vote", "admin"].includes(button.dataset.tab)
+      (publicResultsOnly && ["vote", "admin"].includes(name)) ||
+      (name === "gt3-admin" && !isAdmin)
     );
   });
 
   if (publicResultsOnly) {
     $("vote").classList.add("hidden");
     $("admin").classList.add("hidden");
+    $("gt3-admin").classList.add("hidden");
 
-    document.querySelectorAll(".tab").forEach(button => {
-      button.classList.toggle(
-        "active",
-        button.dataset.tab ===
-          ($("records").classList.contains("hidden") ? "result" : "records")
-      );
-    });
+    const active = document.querySelector(".tab.active");
+    if (!active || ["vote", "admin", "gt3-admin"].includes(active.dataset.tab)) {
+      tab("result");
+    }
+  }
+
+  if (!isAdmin) {
+    $("gt3-admin").classList.add("hidden");
   }
 }
 
@@ -406,18 +232,23 @@ function tab(name) {
   if (
     currentEvent?.result &&
     !isAdmin &&
-    ["vote", "admin"].includes(name)
+    ["vote", "admin", "gt3-admin"].includes(name)
   ) {
     name = "result";
   }
 
-  document.querySelectorAll(".tab").forEach(b =>
-    b.classList.toggle("active", b.dataset.tab === name)
+  if (name === "gt3-admin" && !isAdmin) {
+    name = "records";
+  }
+
+  document.querySelectorAll(".tab").forEach(button =>
+    button.classList.toggle("active", button.dataset.tab === name)
   );
 
-  ["vote", "result", "records", "admin"].forEach(x =>
-    $(x).classList.toggle("hidden", x !== name)
-  );
+  ["vote", "result", "records", "admin", "gt3-admin"].forEach(id => {
+    const section = $(id);
+    if (section) section.classList.toggle("hidden", id !== name);
+  });
 
   if (name === "result" && currentEvent) {
     loadResult();
@@ -432,15 +263,19 @@ function tab(name) {
     loadAdmin();
   }
 
+  if (name === "gt3-admin" && isAdmin) {
+    loadGT3Records();
+  }
+
   applyEventView();
 }
 
-document.querySelectorAll(".tab").forEach(b => {
-  b.onclick = () => tab(b.dataset.tab);
+document.querySelectorAll(".tab").forEach(button => {
+  button.onclick = () => tab(button.dataset.tab);
 });
 
 function msg(id, text) {
-  $(id).textContent = text;
+  if ($(id)) $(id).textContent = text;
 }
 
 function showError(context, error) {
@@ -472,10 +307,11 @@ async function init() {
   isAdmin = false;
 
   if (!ev) {
-    $("connection").textContent =
-      "Создай гоночный вечер в SQL / админке";
-
+    $("connection").textContent = "Создай гоночный вечер в SQL / админке";
     await loadGT3Records();
+
+    if (currentUser) await loadAdmin();
+    applyEventView();
     return;
   }
 
@@ -495,18 +331,12 @@ async function init() {
   await loadResult();
   await loadVoteStats();
 
-  if (currentUser) {
-    await loadAdmin();
-  }
+  if (currentUser) await loadAdmin();
 
-  if (!currentEvent.result && !isAdmin) {
-    tab("vote");
-  }
-
+  if (!currentEvent.result && !isAdmin) tab("vote");
   applyEventView();
 }
 
-// Загружаем все варианты, в том числе отключённые.
 async function loadOptions() {
   const { data, error } = await sb
     .from("options")
@@ -529,11 +359,11 @@ async function loadOptions() {
       </div>
       <div class="options">
         ${categories
-          .filter(o => o.category === cat && o.active)
-          .map(o => `
+          .filter(option => option.category === cat && option.active)
+          .map(option => `
             <label class="option">
-              <input type="checkbox" name="${cat}" value="${o.id}">
-              <span>${escapeHtml(o.label)}</span>
+              <input type="checkbox" name="${cat}" value="${option.id}">
+              <span>${escapeHtml(option.label)}</span>
             </label>
           `).join("") ||
           '<div class="muted">Пока нет активных вариантов</div>'}
@@ -542,19 +372,16 @@ async function loadOptions() {
   `).join("");
 
   categoryOrder.forEach(cat => {
-    document.querySelectorAll(`input[name="${cat}"]`)
-      .forEach(input => {
-        input.addEventListener("change", () => {
-          const checked = document.querySelectorAll(
-            `input[name="${cat}"]:checked`
-          );
+    document.querySelectorAll(`input[name="${cat}"]`).forEach(input => {
+      input.addEventListener("change", () => {
+        const checked = document.querySelectorAll(`input[name="${cat}"]:checked`);
 
-          if (checked.length > 2) {
-            input.checked = false;
-            alert("Можно выбрать не больше двух вариантов.");
-          }
-        });
+        if (checked.length > 2) {
+          input.checked = false;
+          alert("Можно выбрать не больше двух вариантов.");
+        }
       });
+    });
   });
 }
 
@@ -574,7 +401,6 @@ async function loadVotesCount() {
   $("vote-count").textContent = (count || 0) + " голосов";
 }
 
-// Голосование: только INSERT.
 $("submit-vote").onclick = async () => {
   if (!currentEvent || !isOpen) return;
 
@@ -591,7 +417,7 @@ $("submit-vote").onclick = async () => {
   for (const cat of categoryOrder) {
     const checked = [
       ...document.querySelectorAll(`input[name="${cat}"]:checked`)
-    ].map(el => el.value);
+    ].map(element => element.value);
 
     selections[cat] = checked.length === 1
       ? [checked[0], checked[0]]
@@ -624,13 +450,11 @@ $("submit-vote").onclick = async () => {
     return;
   }
 
-  const { error } = await sb
-    .from("votes")
-    .insert({
-      event_id: currentEvent.id,
-      nickname,
-      selections
-    });
+  const { error } = await sb.from("votes").insert({
+    event_id: currentEvent.id,
+    nickname,
+    selections
+  });
 
   if (error) {
     button.disabled = !isOpen;
@@ -677,6 +501,8 @@ $("login").onclick = async () => {
 
   currentUser = data.user;
   await loadAdmin();
+
+  if (isAdmin) tab("admin");
 };
 
 $("logout").onclick = async () => {
@@ -688,6 +514,7 @@ $("logout").onclick = async () => {
   $("admin-panel").classList.add("hidden");
   $("login-panel").classList.remove("hidden");
 
+  tab("records");
   applyEventView();
 };
 
@@ -728,7 +555,6 @@ async function loadAdmin() {
 
   if (currentEvent) {
     $("event-name").value = currentEvent.title;
-
     $("toggle-event").textContent = isOpen
       ? "Закрыть голосование"
       : "Открыть голосование";
@@ -749,7 +575,6 @@ async function loadAdmin() {
   applyEventView();
 }
 
-// Варианты в админке.
 function renderAdminOptions() {
   $("admin-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
@@ -764,22 +589,20 @@ function renderAdminOptions() {
 
       <div class="list">
         ${categories
-          .filter(o => o.category === cat)
-          .map(o => `
-            <div class="admin-option ${o.active ? "" : "disabled-option"}">
+          .filter(option => option.category === cat)
+          .map(option => `
+            <div class="admin-option ${option.active ? "" : "disabled-option"}">
               <input
                 type="checkbox"
-                data-toggle-option="${o.id}"
-                ${o.active ? "checked" : ""}
+                data-toggle-option="${option.id}"
+                ${option.active ? "checked" : ""}
                 title="Активность варианта"
               >
               <span>
-                ${escapeHtml(o.label)}
-                <small>${o.active ? "Активен" : "Отключён, сохранён в базе"}</small>
+                ${escapeHtml(option.label)}
+                <small>${option.active ? "Активен" : "Отключён, сохранён в базе"}</small>
               </span>
-              <button class="btn danger" data-delete-option="${o.id}">
-                Удалить
-              </button>
+              <button class="btn danger" data-delete-option="${option.id}">Удалить</button>
             </div>
           `).join("") ||
           '<div class="muted">Вариантов пока нет</div>'}
@@ -797,12 +620,13 @@ function renderAdminOptions() {
   });
 
   document.querySelectorAll("[data-delete-option]").forEach(button => {
-    button.onclick = () =>
-      deleteOption(button.dataset.deleteOption);
+    button.onclick = () => deleteOption(button.dataset.deleteOption);
   });
 }
 
 async function addOption(cat) {
+  if (!isAdmin) return;
+
   const label = $("new-" + cat).value.trim();
   if (!label) return;
 
@@ -819,6 +643,8 @@ async function addOption(cat) {
 }
 
 async function setOptionActive(id, active) {
+  if (!isAdmin) return;
+
   const { error } = await sb
     .from("options")
     .update({ active })
@@ -833,20 +659,17 @@ async function setOptionActive(id, active) {
 }
 
 async function deleteOption(id) {
-  const option = categories.find(o => o.id === id);
+  if (!isAdmin) return;
+
+  const option = categories.find(item => item.id === id);
   if (!option) return;
 
-  const confirmed = confirm(
+  if (!confirm(
     `Полностью удалить вариант «${option.label}» из базы?\n\n` +
     "Это действие нельзя отменить. В старых результатах название может перестать отображаться."
-  );
+  )) return;
 
-  if (!confirmed) return;
-
-  const { error } = await sb
-    .from("options")
-    .delete()
-    .eq("id", id);
+  const { error } = await sb.from("options").delete().eq("id", id);
 
   if (error) {
     alert("Не удалось удалить вариант: " + error.message);
@@ -871,7 +694,6 @@ async function refreshAdminData() {
   await renderGT3EntryForms();
 }
 
-// Панель участников.
 function ensureAdminVotersPanel() {
   if ($("admin-voters-panel")) return;
 
@@ -891,7 +713,6 @@ function ensureAdminVotersPanel() {
   $("admin-categories").insertAdjacentElement("afterend", panel);
 }
 
-// Панель очистки результатов жеребьёвки.
 function ensureAdminResultsPanel() {
   if ($("admin-results-panel")) return;
 
@@ -913,14 +734,12 @@ function ensureAdminResultsPanel() {
 }
 
 async function clearCurrentEventResults() {
-  if (!currentEvent) return;
+  if (!currentEvent || !isAdmin) return;
 
-  const confirmed = confirm(
+  if (!confirm(
     "Удалить результаты жеребьёвки текущего вечера?\n\n" +
     "Голоса участников, инфографика и сохранённая история GT3 останутся."
-  );
-
-  if (!confirmed) return;
+  )) return;
 
   const button = $("clear-results");
   if (button) button.disabled = true;
@@ -943,7 +762,6 @@ async function clearCurrentEventResults() {
   applyEventView();
 
   if (button) button.disabled = false;
-
   alert("Результаты жеребьёвки удалены. История GT3 сохранена.");
 }
 
@@ -975,7 +793,7 @@ async function loadAdminVoters() {
       const ids = normalizedVotes(vote.selections, cat);
 
       const names = [...new Set(ids)].map(id => {
-        const count = ids.filter(x => x === id).length;
+        const count = ids.filter(value => value === id).length;
         return optionLabel(id) + (count > 1 ? ` ×${count}` : "");
       });
 
@@ -1010,7 +828,7 @@ async function loadAdminVoters() {
 }
 
 async function deleteVote(nickname) {
-  if (!confirm(`Удалить голос участника «${nickname}»?`)) return;
+  if (!isAdmin || !confirm(`Удалить голос участника «${nickname}»?`)) return;
 
   const { error } = await sb
     .from("votes")
@@ -1031,7 +849,7 @@ async function deleteVote(nickname) {
 }
 
 $("save-event").onclick = async () => {
-  if (!currentEvent) return;
+  if (!currentEvent || !isAdmin) return;
 
   const title = $("event-name").value.trim();
   if (!title) return;
@@ -1049,7 +867,7 @@ $("save-event").onclick = async () => {
 };
 
 $("toggle-event").onclick = async () => {
-  if (!currentEvent) return;
+  if (!currentEvent || !isAdmin) return;
 
   const { error } = await sb
     .from("events")
@@ -1064,7 +882,7 @@ $("toggle-event").onclick = async () => {
 };
 
 $("draw").onclick = async () => {
-  if (!currentEvent) return;
+  if (!currentEvent || !isAdmin) return;
 
   if (!confirm("Закрыть голосование и провести жеребьёвку для двух гонок?")) {
     return;
@@ -1084,7 +902,7 @@ $("draw").onclick = async () => {
 };
 
 $("reset-votes").onclick = async () => {
-  if (!currentEvent) return;
+  if (!currentEvent || !isAdmin) return;
   if (!confirm("Удалить все голоса текущего вечера?")) return;
 
   const { error } = await sb
@@ -1102,17 +920,15 @@ $("reset-votes").onclick = async () => {
   }
 };
 
-// Загружаем все GT3-гонки, круги и названия гоночных вечеров.
+// GT3: загружаем гонки и отдельные круги.
 async function loadGT3Records() {
+  if (!sb) return;
+
   const container = $("gt3-records-content");
 
-  const [
-    racesResponse,
-    lapsResponse,
-    eventsResponse
-  ] = await Promise.all([
+  const [racesResponse, lapsResponse, eventsResponse] = await Promise.all([
     sb.from("gt3_race_results")
-      .select("id,event_id,race_number,track_name,winner_name,created_at")
+      .select("id,event_id,race_number,track_name,created_at")
       .order("created_at", { ascending: false }),
 
     sb.from("gt3_laps")
@@ -1123,10 +939,7 @@ async function loadGT3Records() {
       .select("id,title,created_at")
   ]);
 
-  const error =
-    racesResponse.error ||
-    lapsResponse.error ||
-    eventsResponse.error;
+  const error = racesResponse.error || lapsResponse.error || eventsResponse.error;
 
   if (error) {
     console.error("Ошибка загрузки GT3-истории", error);
@@ -1135,7 +948,6 @@ async function loadGT3Records() {
       container.innerHTML =
         `<div class="record-empty">Не удалось загрузить историю GT3: ${escapeHtml(error.message)}</div>`;
     }
-
     return;
   }
 
@@ -1147,23 +959,24 @@ async function loadGT3Records() {
 
   if (isAdmin) {
     renderGT3AdminHistory();
+    await renderGT3EntryForms();
   }
+}
+
+function sortedGT3Races() {
+  return [...gt3Races].sort((a, b) => {
+    const eventA = gt3Events.find(event => event.id === a.event_id);
+    const eventB = gt3Events.find(event => event.id === b.event_id);
+
+    return new Date(eventB?.created_at || b.created_at) -
+      new Date(eventA?.created_at || a.created_at);
+  });
 }
 
 function renderGT3Records() {
   const container = $("gt3-records-content");
   if (!container) return;
 
-  if (!gt3Races.length) {
-    container.innerHTML = `
-      <div class="record-empty">
-        Пока нет сохранённых результатов GT3. Первый гоночный вечер откроет историю рекордов.
-      </div>
-    `;
-    return;
-  }
-
-  // Лучший круг по каждой трассе.
   const bestByTrack = new Map();
 
   gt3Races.forEach(race => {
@@ -1182,35 +995,9 @@ function renderGT3Records() {
   });
 
   const bestRecords = [...bestByTrack.values()]
-    .sort((a, b) =>
-      a.track_name.localeCompare(b.track_name, "ru")
-    );
+    .sort((a, b) => a.track_name.localeCompare(b.track_name, "ru"));
 
-  // Количество побед каждого гонщика.
-  const wins = {};
-
-  gt3Races.forEach(race => {
-    const name = String(race.winner_name || "").trim();
-    if (!name) return;
-
-    wins[name] = (wins[name] || 0) + 1;
-  });
-
-  const leaderboard = Object.entries(wins)
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) =>
-      b.count - a.count ||
-      a.name.localeCompare(b.name, "ru")
-    );
-
-  // История всех гонок и хот-лапов.
-  const history = [...gt3Races].sort((a, b) => {
-    const eventA = gt3Events.find(e => e.id === a.event_id);
-    const eventB = gt3Events.find(e => e.id === b.event_id);
-
-    return new Date(eventB?.created_at || b.created_at) -
-      new Date(eventA?.created_at || a.created_at);
-  });
+  const history = sortedGT3Races();
 
   container.innerHTML = `
     <h3 class="record-section-title">Лучшие хот-лапы по трассам</h3>
@@ -1242,74 +1029,46 @@ function renderGT3Records() {
       <div class="record-empty">Хот-лапы пока не добавлены.</div>
     `}
 
-    <h3 class="record-section-title">Рейтинг победителей GT3</h3>
-
-    ${leaderboard.length ? `
-      <div class="records-table-wrap">
-        <table class="records-table">
-          <thead>
-            <tr>
-              <th>Место</th>
-              <th>Гонщик</th>
-              <th>Победы</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${leaderboard.map((item, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td>${escapeHtml(item.name)}</td>
-                <td>${item.count}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    ` : `
-      <div class="record-empty">Победители пока не внесены.</div>
-    `}
-
     <h3 class="record-section-title">История гонок и хот-лапов</h3>
 
-    <div class="record-history">
-      ${history.map(race => {
-        const laps = getRaceLaps(race.id);
+    ${history.length ? `
+      <div class="record-history">
+        ${history.map(race => {
+          const laps = getRaceLaps(race.id);
 
-        return `
-          <div class="gt3-history-card">
-            <div class="gt3-history-heading">
-              ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
-            </div>
-
-            <div class="gt3-history-sub">
-              ${escapeHtml(getRaceDate(race))} · ${escapeHtml(race.track_name)}
-            </div>
-
-            <div>
-              Победитель: <strong>${escapeHtml(race.winner_name || "—")}</strong>
-            </div>
-
-            ${laps.length ? `
-              <div class="gt3-lap-list">
-                ${laps.map(lap => `
-                  <div class="gt3-lap-item">
-                    <div class="gt3-lap-main">
-                      <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
-                      <div class="gt3-lap-meta">
-                        ${escapeHtml(lap.car_name || "Автомобиль не указан")}
-                      </div>
-                    </div>
-                    <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
-                  </div>
-                `).join("")}
+          return `
+            <div class="gt3-history-card">
+              <div class="gt3-history-heading">
+                ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
               </div>
-            ` : `
-              <div class="hint" style="margin-top:10px">Хот-лапы не внесены.</div>
-            `}
-          </div>
-        `;
-      }).join("")}
-    </div>
+              <div class="gt3-history-sub">
+                ${escapeHtml(getRaceDate(race))} · ${escapeHtml(race.track_name)}
+              </div>
+
+              ${laps.length ? `
+                <div class="gt3-lap-list">
+                  ${laps.map(lap => `
+                    <div class="gt3-lap-item">
+                      <div class="gt3-lap-main">
+                        <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
+                        <div class="gt3-lap-meta">
+                          ${escapeHtml(lap.car_name || "Автомобиль не указан")}
+                        </div>
+                      </div>
+                      <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
+                    </div>
+                  `).join("")}
+                </div>
+              ` : `
+                <div class="hint" style="margin-top:10px">Хот-лапы не внесены.</div>
+              `}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    ` : `
+      <div class="record-empty">История GT3 пока пуста.</div>
+    `}
 
     <div class="hint" style="margin-top:14px">
       Учтено гонок GT3: ${gt3Races.length}. Хот-лапов: ${gt3Laps.length}.
@@ -1317,22 +1076,20 @@ function renderGT3Records() {
   `;
 }
 
-// Форма внесения результатов текущего гоночного вечера.
+// Форма внесения кругов текущего гоночного вечера.
 async function renderGT3EntryForms() {
   const container = $("gt3-entry-content");
   if (!container || !isAdmin) return;
 
   if (!currentEvent) {
-    container.innerHTML =
-      '<div class="record-empty">Нет активного гоночного вечера.</div>';
+    container.innerHTML = '<div class="record-empty">Нет активного гоночного вечера.</div>';
     return;
   }
 
   const result = currentEvent.result;
 
   if (!result) {
-    container.innerHTML =
-      '<div class="record-empty">Сначала проведи жеребьёвку.</div>';
+    container.innerHTML = '<div class="record-empty">Сначала проведи жеребьёвку.</div>';
     return;
   }
 
@@ -1370,107 +1127,60 @@ async function renderGT3EntryForms() {
         <h3>Гонка ${race.number} · ${escapeHtml(race.track)}</h3>
         <div class="hint">Класс: ${escapeHtml(race.carClass)}</div>
 
-        <div class="field">
-          <label>Победитель</label>
-          <input
-            id="gt3-winner-${race.number}"
-            maxlength="50"
-            placeholder="Ник победителя"
-            value="${escapeHtml(saved?.winner_name || "")}"
-          >
+        <div class="gt3-lap-edit">
+          <input id="new-lap-driver-${race.number}" maxlength="50" placeholder="Ник пилота">
+          <input id="new-lap-time-${race.number}" maxlength="12" placeholder="Время 1:42.381">
+          <input id="new-lap-car-${race.number}" maxlength="80" placeholder="Автомобиль">
         </div>
 
         <div class="actions">
-          <button class="btn primary" data-save-winner="${race.number}">
-            ${saved ? "Обновить победителя" : "Сохранить победителя"}
+          <button class="btn primary" data-add-lap="${race.number}">
+            Добавить хот-лап
           </button>
         </div>
 
-        ${saved ? `
-          <div class="record-section-title">Хот-лапы этой гонки</div>
-
-          <div class="hint">
-            Каждый круг сохраняется отдельной записью. Добавление нового круга не перезаписывает старые.
-          </div>
-
-          <div class="gt3-lap-edit">
-            <input
-              id="new-lap-driver-${race.number}"
-              maxlength="50"
-              placeholder="Ник пилота"
-            >
-            <input
-              id="new-lap-time-${race.number}"
-              maxlength="12"
-              placeholder="Время 1:42.381"
-            >
-            <input
-              id="new-lap-car-${race.number}"
-              maxlength="80"
-              placeholder="Автомобиль"
-            >
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" data-add-lap="${race.number}">
-              Добавить хот-лап
-            </button>
-          </div>
-
-          ${laps.length ? `
-            <div class="gt3-lap-list">
-              ${laps.map(lap => `
-                <div class="gt3-lap-item">
-                  <div class="gt3-lap-main">
-                    <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
-                    <div class="gt3-lap-meta">${escapeHtml(lap.car_name || "Автомобиль не указан")}</div>
-                    <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
-                  </div>
-                  <div class="record-actions">
-                    <button class="btn" data-edit-lap="${lap.id}">Редактировать</button>
-                    <button class="btn danger" data-delete-lap="${lap.id}">Удалить</button>
-                  </div>
+        ${saved && laps.length ? `
+          <div class="record-section-title">Круги этой гонки (${laps.length})</div>
+          <div class="gt3-lap-list">
+            ${laps.map(lap => `
+              <div class="gt3-lap-item">
+                <div class="gt3-lap-main">
+                  <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
+                  <div class="gt3-lap-meta">${escapeHtml(lap.car_name || "Автомобиль не указан")}</div>
+                  <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
                 </div>
-              `).join("")}
-            </div>
-          ` : `
-            <div class="record-empty" style="margin-top:10px">
-              Хот-лапов пока нет.
-            </div>
-          `}
+                <div class="record-actions">
+                  <button class="btn" data-edit-lap="${lap.id}">Изменить</button>
+                  <button class="btn danger" data-delete-lap="${lap.id}">Удалить</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
         ` : `
-          <div class="notice">
-            Сначала сохрани победителя гонки. После этого можно будет добавлять хот-лапы.
+          <div class="record-empty" style="margin-top:10px">
+            Хот-лапы этой гонки пока не добавлены.
           </div>
         `}
       </div>
     `;
   }).join("");
 
-  document.querySelectorAll("[data-save-winner]").forEach(button => {
-    button.onclick = () =>
-      saveGT3Winner(Number(button.dataset.saveWinner));
-  });
-
   document.querySelectorAll("[data-add-lap]").forEach(button => {
-    button.onclick = () =>
-      addGT3Lap(Number(button.dataset.addLap));
+    button.onclick = () => addGT3Lap(Number(button.dataset.addLap));
   });
 
   document.querySelectorAll("[data-edit-lap]").forEach(button => {
-    button.onclick = () =>
-      editGT3Lap(button.dataset.editLap);
+    button.onclick = () => focusGT3AdminLap(button.dataset.editLap);
   });
 
   document.querySelectorAll("[data-delete-lap]").forEach(button => {
-    button.onclick = () =>
-      deleteGT3Lap(button.dataset.deleteLap);
+    button.onclick = () => deleteGT3Lap(button.dataset.deleteLap);
   });
 }
 
-// Сохраняем победителя. Одна запись на одну гонку вечера.
-async function saveGT3Winner(raceNumber) {
-  if (!currentEvent || !isAdmin) return;
+// Создаём или находим строку гонки, затем добавляем отдельный круг.
+async function addGT3Lap(raceNumber) {
+  if (!isAdmin || !currentEvent) return;
 
   const result = currentEvent.result;
   if (!result) {
@@ -1487,60 +1197,7 @@ async function saveGT3Winner(raceNumber) {
     return;
   }
 
-  const trackName = optionLabel(
-    tracks[raceNumber - 1] ?? tracks[0] ?? "—"
-  );
-
-  const winner = $(`gt3-winner-${raceNumber}`).value.trim();
-
-  if (!winner) {
-    alert("Введи ник победителя.");
-    return;
-  }
-
-  const button = document.querySelector(
-    `[data-save-winner="${raceNumber}"]`
-  );
-
-  if (button) button.disabled = true;
-
-  const { error } = await sb
-    .from("gt3_race_results")
-    .upsert({
-      event_id: currentEvent.id,
-      race_number: raceNumber,
-      track_name: trackName,
-      winner_name: winner
-    }, {
-      onConflict: "event_id,race_number"
-    });
-
-  if (error) {
-    if (button) button.disabled = false;
-    alert("Не удалось сохранить победителя: " + error.message);
-    return;
-  }
-
-  await loadGT3Records();
-  await renderGT3EntryForms();
-
-  alert(`Победитель гонки ${raceNumber} сохранён.`);
-}
-
-// Добавление отдельного хот-лапа.
-async function addGT3Lap(raceNumber) {
-  if (!isAdmin || !currentEvent) return;
-
-  const race = gt3Races.find(item =>
-    item.event_id === currentEvent.id &&
-    item.race_number === raceNumber
-  );
-
-  if (!race) {
-    alert("Сначала сохрани победителя этой гонки.");
-    return;
-  }
-
+  const trackName = optionLabel(tracks[raceNumber - 1] ?? tracks[0] ?? "—");
   const driver = $(`new-lap-driver-${raceNumber}`).value.trim();
   const timeText = $(`new-lap-time-${raceNumber}`).value.trim();
   const car = $(`new-lap-car-${raceNumber}`).value.trim();
@@ -1551,26 +1208,38 @@ async function addGT3Lap(raceNumber) {
   }
 
   const lapMs = parseLapTime(timeText);
-
   if (!lapMs) {
     alert("Неверный формат времени. Используй формат 1:42.381");
     return;
   }
 
-  const button = document.querySelector(
-    `[data-add-lap="${raceNumber}"]`
-  );
-
+  const button = document.querySelector(`[data-add-lap="${raceNumber}"]`);
   if (button) button.disabled = true;
 
-  const { error } = await sb
-    .from("gt3_laps")
-    .insert({
-      race_result_id: race.id,
-      driver_name: driver,
-      lap_ms: lapMs,
-      car_name: car
-    });
+  const { data: race, error: raceError } = await sb
+    .from("gt3_race_results")
+    .upsert({
+      event_id: currentEvent.id,
+      race_number: raceNumber,
+      track_name: trackName
+    }, {
+      onConflict: "event_id,race_number"
+    })
+    .select("id")
+    .single();
+
+  if (raceError) {
+    if (button) button.disabled = false;
+    alert("Не удалось сохранить гонку GT3: " + raceError.message);
+    return;
+  }
+
+  const { error } = await sb.from("gt3_laps").insert({
+    race_result_id: race.id,
+    driver_name: driver,
+    lap_ms: lapMs,
+    car_name: car
+  });
 
   if (error) {
     if (button) button.disabled = false;
@@ -1579,59 +1248,25 @@ async function addGT3Lap(raceNumber) {
   }
 
   await loadGT3Records();
-  await renderGT3EntryForms();
-
   alert("Хот-лап добавлен в историю.");
 }
 
-// Редактирование конкретного круга по его ID.
-async function editGT3Lap(lapId) {
+// Изменение из формы текущего вечера переводит администратора
+// на отдельную страницу истории, где есть все поля выбранного круга.
+function focusGT3AdminLap(lapId) {
   if (!isAdmin) return;
 
-  const lap = gt3Laps.find(item => item.id === lapId);
-  if (!lap) {
-    alert("Запись не найдена. Обнови страницу.");
-    return;
-  }
+  tab("gt3-admin");
 
-  const driver = prompt("Пилот:", lap.driver_name);
-  if (driver === null) return;
-
-  const timeText = prompt("Время круга (например, 1:42.381):", formatLapTime(lap.lap_ms));
-  if (timeText === null) return;
-
-  const car = prompt("Автомобиль:", lap.car_name || "");
-  if (car === null) return;
-
-  const cleanDriver = driver.trim();
-  const lapMs = parseLapTime(timeText);
-
-  if (!cleanDriver || !lapMs) {
-    alert("Проверь ник пилота и формат времени.");
-    return;
-  }
-
-  const { error } = await sb
-    .from("gt3_laps")
-    .update({
-      driver_name: cleanDriver,
-      lap_ms: lapMs,
-      car_name: car.trim()
-    })
-    .eq("id", lapId);
-
-  if (error) {
-    alert("Не удалось изменить хот-лап: " + error.message);
-    return;
-  }
-
-  await loadGT3Records();
-  await renderGT3EntryForms();
-
-  alert("Хот-лап обновлён. Рекорды пересчитаны.");
+  setTimeout(() => {
+    const field = $(`history-lap-driver-${lapId}`);
+    if (field) {
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+      field.focus();
+    }
+  }, 50);
 }
 
-// Удаление только выбранного круга.
 async function deleteGT3Lap(lapId) {
   if (!isAdmin) return;
 
@@ -1640,9 +1275,7 @@ async function deleteGT3Lap(lapId) {
 
   if (!confirm(
     `Удалить хот-лап ${lap.driver_name} — ${formatLapTime(lap.lap_ms)}?\n\nЭто действие нельзя отменить.`
-  )) {
-    return;
-  }
+  )) return;
 
   const { error } = await sb
     .from("gt3_laps")
@@ -1655,168 +1288,141 @@ async function deleteGT3Lap(lapId) {
   }
 
   await loadGT3Records();
-  await renderGT3EntryForms();
-
   alert("Хот-лап удалён. Рекорды пересчитаны.");
 }
 
-// Полная административная история: можно изменить победителя,
-// трассу и любой круг любого гоночного вечера.
+// Отдельная страница управления всей историей GT3.
 function renderGT3AdminHistory() {
   const container = $("gt3-admin-history-content");
   if (!container || !isAdmin) return;
 
   if (!gt3Races.length) {
-    container.innerHTML =
-      '<div class="record-empty">История GT3 пока пуста.</div>';
+    container.innerHTML = '<div class="record-empty">История GT3 пока пуста.</div>';
     return;
   }
 
-  container.innerHTML = [...gt3Races]
-    .sort((a, b) => {
-      const eventA = gt3Events.find(e => e.id === a.event_id);
-      const eventB = gt3Events.find(e => e.id === b.event_id);
+  container.innerHTML = sortedGT3Races().map(race => {
+    const laps = getRaceLaps(race.id);
 
-      return new Date(eventB?.created_at || b.created_at) -
-        new Date(eventA?.created_at || a.created_at);
-    })
-    .map(race => {
-      const laps = getRaceLaps(race.id);
+    return `
+      <div class="gt3-history-card">
+        <div class="gt3-history-heading">
+          ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
+        </div>
+        <div class="gt3-history-sub">${escapeHtml(getRaceDate(race))}</div>
 
-      return `
-        <div class="gt3-history-card">
-          <div class="gt3-history-heading">
-            ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
-          </div>
+        <div class="field">
+          <label>Трасса</label>
+          <input
+            id="history-track-${race.id}"
+            maxlength="100"
+            value="${escapeHtml(race.track_name)}"
+          >
+        </div>
+        <div class="gt3-lap-actions">
+          <button class="btn primary" data-save-race-history="${race.id}">
+            Сохранить трассу
+          </button>
+        </div>
 
-          <div class="gt3-history-sub">
-            ${escapeHtml(getRaceDate(race))}
-          </div>
+        <div class="record-section-title">Хот-лапы (${laps.length})</div>
 
-          <div class="gt3-admin-fields">
-            <div class="field">
-              <label>Трасса</label>
-              <input
-                id="history-track-${race.id}"
-                maxlength="100"
-                value="${escapeHtml(race.track_name)}"
-              >
+        ${laps.length ? laps.map(lap => `
+          <div class="gt3-history-lap" id="history-lap-card-${lap.id}">
+            <div class="gt3-admin-fields">
+              <div class="field">
+                <label>Пилот</label>
+                <input
+                  id="history-lap-driver-${lap.id}"
+                  maxlength="50"
+                  value="${escapeHtml(lap.driver_name)}"
+                >
+              </div>
+              <div class="field">
+                <label>Время</label>
+                <input
+                  id="history-lap-time-${lap.id}"
+                  maxlength="12"
+                  value="${formatLapTime(lap.lap_ms)}"
+                >
+              </div>
+              <div class="field">
+                <label>Автомобиль</label>
+                <input
+                  id="history-lap-car-${lap.id}"
+                  maxlength="80"
+                  value="${escapeHtml(lap.car_name || "")}"
+                >
+              </div>
             </div>
-
-            <div class="field">
-              <label>Победитель</label>
-              <input
-                id="history-winner-${race.id}"
-                maxlength="50"
-                value="${escapeHtml(race.winner_name)}"
-              >
+            <div class="gt3-lap-actions">
+              <button class="btn primary" data-save-history-lap="${lap.id}">
+                Сохранить круг
+              </button>
+              <button class="btn danger" data-delete-history-lap="${lap.id}">
+                Удалить круг
+              </button>
             </div>
           </div>
+        `).join("") : `
+          <div class="hint">В этой гонке пока нет хот-лапов.</div>
+        `}
 
-          <div class="actions">
-            <button class="btn primary" data-save-race-history="${race.id}">
-              Сохранить гонку
+        <div class="gt3-admin-add">
+          <h4>Добавить круг в эту гонку</h4>
+          <div class="gt3-lap-edit">
+            <input id="history-new-driver-${race.id}" maxlength="50" placeholder="Ник пилота">
+            <input id="history-new-time-${race.id}" maxlength="12" placeholder="Время 1:42.381">
+            <input id="history-new-car-${race.id}" maxlength="80" placeholder="Автомобиль">
+          </div>
+          <div class="gt3-lap-actions">
+            <button class="btn primary" data-add-history-lap="${race.id}">
+              Добавить круг
             </button>
           </div>
-
-          <div class="record-section-title">
-            Хот-лапы (${laps.length})
-          </div>
-
-          ${laps.length ? laps.map(lap => `
-            <div class="gt3-history-lap">
-              <div class="gt3-admin-fields">
-                <div class="field">
-                  <label>Пилот</label>
-                  <input
-                    id="history-lap-driver-${lap.id}"
-                    maxlength="50"
-                    value="${escapeHtml(lap.driver_name)}"
-                  >
-                </div>
-
-                <div class="field">
-                  <label>Время</label>
-                  <input
-                    id="history-lap-time-${lap.id}"
-                    maxlength="12"
-                    value="${formatLapTime(lap.lap_ms)}"
-                  >
-                </div>
-
-                <div class="field">
-                  <label>Автомобиль</label>
-                  <input
-                    id="history-lap-car-${lap.id}"
-                    maxlength="80"
-                    value="${escapeHtml(lap.car_name || "")}"
-                  >
-                </div>
-              </div>
-
-              <div class="gt3-lap-actions">
-                <button class="btn primary" data-save-history-lap="${lap.id}">
-                  Сохранить круг
-                </button>
-                <button class="btn danger" data-delete-history-lap="${lap.id}">
-                  Удалить круг
-                </button>
-              </div>
-            </div>
-          `).join("") : `
-            <div class="hint">В этой гонке пока нет хот-лапов.</div>
-          `}
         </div>
-      `;
-    }).join("");
+      </div>
+    `;
+  }).join("");
 
   document.querySelectorAll("[data-save-race-history]").forEach(button => {
-    button.onclick = () =>
-      updateGT3RaceHistory(button.dataset.saveRaceHistory);
+    button.onclick = () => updateGT3RaceHistory(button.dataset.saveRaceHistory);
   });
 
   document.querySelectorAll("[data-save-history-lap]").forEach(button => {
-    button.onclick = () =>
-      updateGT3LapHistory(button.dataset.saveHistoryLap);
+    button.onclick = () => updateGT3LapHistory(button.dataset.saveHistoryLap);
   });
 
   document.querySelectorAll("[data-delete-history-lap]").forEach(button => {
-    button.onclick = () =>
-      deleteGT3Lap(button.dataset.deleteHistoryLap);
+    button.onclick = () => deleteGT3Lap(button.dataset.deleteHistoryLap);
+  });
+
+  document.querySelectorAll("[data-add-history-lap]").forEach(button => {
+    button.onclick = () => addHistoricalGT3Lap(button.dataset.addHistoryLap);
   });
 }
 
 async function updateGT3RaceHistory(raceId) {
   if (!isAdmin) return;
 
-  const race = gt3Races.find(item => item.id === raceId);
-  if (!race) return;
-
   const trackName = $(`history-track-${raceId}`).value.trim();
-  const winnerName = $(`history-winner-${raceId}`).value.trim();
-
-  if (!trackName || !winnerName) {
-    alert("Заполни трассу и имя победителя.");
+  if (!trackName) {
+    alert("Укажи название трассы.");
     return;
   }
 
   const { error } = await sb
     .from("gt3_race_results")
-    .update({
-      track_name: trackName,
-      winner_name: winnerName
-    })
+    .update({ track_name: trackName })
     .eq("id", raceId);
 
   if (error) {
-    alert("Не удалось обновить гонку: " + error.message);
+    alert("Не удалось обновить трассу: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  await renderGT3EntryForms();
-
-  alert("Данные гонки обновлены.");
+  alert("Трасса обновлена. Рекорды пересчитаны.");
 }
 
 async function updateGT3LapHistory(lapId) {
@@ -1825,7 +1431,6 @@ async function updateGT3LapHistory(lapId) {
   const driver = $(`history-lap-driver-${lapId}`).value.trim();
   const timeText = $(`history-lap-time-${lapId}`).value.trim();
   const car = $(`history-lap-car-${lapId}`).value.trim();
-
   const lapMs = parseLapTime(timeText);
 
   if (!driver || !lapMs) {
@@ -1848,12 +1453,39 @@ async function updateGT3LapHistory(lapId) {
   }
 
   await loadGT3Records();
-  await renderGT3EntryForms();
-
   alert("Хот-лап обновлён. Рекорды пересчитаны.");
 }
 
-// Выводим текущую жеребьёвку и рекорд GT3 под каждой трассой.
+async function addHistoricalGT3Lap(raceId) {
+  if (!isAdmin) return;
+
+  const driver = $(`history-new-driver-${raceId}`).value.trim();
+  const timeText = $(`history-new-time-${raceId}`).value.trim();
+  const car = $(`history-new-car-${raceId}`).value.trim();
+  const lapMs = parseLapTime(timeText);
+
+  if (!driver || !lapMs) {
+    alert("Заполни ник пилота и корректное время круга.");
+    return;
+  }
+
+  const { error } = await sb.from("gt3_laps").insert({
+    race_result_id: raceId,
+    driver_name: driver,
+    lap_ms: lapMs,
+    car_name: car
+  });
+
+  if (error) {
+    alert("Не удалось добавить круг: " + error.message);
+    return;
+  }
+
+  await loadGT3Records();
+  alert("Круг добавлен в историю.");
+}
+
+// Результат жеребьёвки и рекорд GT3 по трассе.
 async function loadResult() {
   if (!currentEvent) return;
 
@@ -1868,10 +1500,10 @@ async function loadResult() {
     return;
   }
 
-  const r = data?.result;
-  currentEvent.result = r || null;
+  const result = data?.result;
+  currentEvent.result = result || null;
 
-  if (!r) {
+  if (!result) {
     $("result-card").innerHTML = `
       <div class="eyebrow">RACE RANDOMIZER</div>
       <h2>Ждём жеребьёвку</h2>
@@ -1880,42 +1512,27 @@ async function loadResult() {
     return;
   }
 
-  const tracks = resultValues(r.track);
-  const classes = resultValues(r.car_class);
-  const weather = resultValues(r.weather);
+  const tracks = resultValues(result.track);
+  const classes = resultValues(result.car_class);
+  const weather = resultValues(result.weather);
 
   $("result-card").innerHTML = `
     <div class="eyebrow">RACE NIGHT / RESULTS</div>
     <div class="cols" style="margin-top:12px">
-      ${[0, 1].map(i => {
-        const trackName = optionLabel(
-          tracks[i] ?? tracks[0] ?? "—"
-        );
-
-        const carClass = optionLabel(
-          classes[i] ?? classes[0] ?? "—"
-        );
-
-        const weatherName = optionLabel(
-          weather[i] ?? weather[0] ?? "—"
-        );
-
+      ${[0, 1].map(index => {
+        const trackName = optionLabel(tracks[index] ?? tracks[0] ?? "—");
+        const carClass = optionLabel(classes[index] ?? classes[0] ?? "—");
+        const weatherName = optionLabel(weather[index] ?? weather[0] ?? "—");
         const record = getBestRecord(trackName);
 
         return `
           <div class="panel">
-            <div class="eyebrow">RACE ${i + 1}</div>
+            <div class="eyebrow">RACE ${index + 1}</div>
             <h2>${escapeHtml(trackName)}</h2>
+            <p>Класс: <strong>${escapeHtml(carClass)}</strong></p>
+            <p>Погода: <strong>${escapeHtml(weatherName)}</strong></p>
 
-            <p>Класс:
-              <strong>${escapeHtml(carClass)}</strong>
-            </p>
-
-            <p>Погода:
-              <strong>${escapeHtml(weatherName)}</strong>
-            </p>
-
-            ${isGT3Class(classes[i] ?? classes[0]) ? `
+            ${isGT3Class(classes[index] ?? classes[0]) ? `
               <div class="record-highlight">
                 <div class="record-label">ЛУЧШИЙ КРУГ GT3</div>
                 ${record ? `
@@ -1952,10 +1569,8 @@ async function loadVoteStats() {
 
   if (error) {
     console.error("Ошибка загрузки статистики", error);
-
     $("vote-stats-content").innerHTML =
       '<div class="muted">Не удалось загрузить статистику голосов.</div>';
-
     return;
   }
 
@@ -1964,7 +1579,6 @@ async function loadVoteStats() {
   if (!votes.length) {
     $("vote-stats-content").innerHTML =
       '<div class="muted">Пока никто не проголосовал.</div>';
-
     return;
   }
 
@@ -1980,11 +1594,7 @@ async function loadVoteStats() {
     });
 
     const entries = Object.entries(tally)
-      .map(([id, count]) => ({
-        id,
-        count,
-        label: optionLabel(id)
-      }))
+      .map(([id, count]) => ({ id, count, label: optionLabel(id) }))
       .sort((a, b) => b.count - a.count);
 
     const total = entries.reduce((sum, item) => sum + item.count, 0);
@@ -1992,11 +1602,8 @@ async function loadVoteStats() {
     html += `
       <div class="stats-category">
         <h3>${labels[cat]}</h3>
-
         ${entries.length ? entries.map(item => {
-          const percent = total
-            ? Math.round(item.count / total * 100)
-            : 0;
+          const percent = total ? Math.round(item.count / total * 100) : 0;
 
           return `
             <div class="stat-row">
@@ -2008,7 +1615,6 @@ async function loadVoteStats() {
             </div>
           `;
         }).join("") : '<div class="muted">Нет голосов в этой категории.</div>'}
-
         <div class="hint">Всего голосов в категории: ${total}</div>
       </div>
     `;
@@ -2019,7 +1625,7 @@ async function loadVoteStats() {
       const ids = normalizedVotes(vote.selections, cat);
 
       const names = [...new Set(ids)].map(id => {
-        const count = ids.filter(x => x === id).length;
+        const count = ids.filter(value => value === id).length;
         return optionLabel(id) + (count > 1 ? ` ×${count}` : "");
       });
 
@@ -2044,9 +1650,7 @@ async function loadVoteStats() {
       Участников: ${votes.length}.
       Каждый участник даёт до двух голосов в каждой категории.
     </div>
-
     ${html}
-
     <div class="stats-category">
       <h3>Кто за что проголосовал</h3>
       <div class="voter-list">${votersHtml}</div>
@@ -2069,18 +1673,18 @@ async function loadHistory() {
     return;
   }
 
-  $("history").innerHTML = (data || []).map(e => {
-    const track = resultValues(e.result?.track);
-    const trackNames = track.map(optionLabel).join(" / ");
+  $("history").innerHTML = (data || []).map(event => {
+    const tracks = resultValues(event.result?.track);
+    const trackNames = tracks.map(optionLabel).join(" / ");
 
     return `
       <div class="item">
         <span>
-          ${escapeHtml(e.title)} ·
-          ${e.result ? escapeHtml(trackNames) : "Без результата"}
+          ${escapeHtml(event.title)} ·
+          ${event.result ? escapeHtml(trackNames) : "Без результата"}
         </span>
         <small class="muted">
-          ${new Date(e.created_at).toLocaleDateString("ru-RU")}
+          ${new Date(event.created_at).toLocaleDateString("ru-RU")}
         </small>
       </div>
     `;
