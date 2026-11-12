@@ -25,60 +25,6 @@ const labels = {
   weather: "Погода"
 };
 
-// Дополнительные стили для списка голосовавших.
-function installExtraStyles() {
-  if ($("extra-styles")) return;
-
-  const style = document.createElement("style");
-  style.id = "extra-styles";
-  style.textContent = `
-    .voter-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .voter-card {
-      padding: 13px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #0d1720;
-    }
-
-    .voter-name {
-      font-weight: 800;
-      margin-bottom: 9px;
-    }
-
-    .voter-picks {
-      display: grid;
-      gap: 5px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .voter-picks strong {
-      color: var(--text);
-    }
-
-    .admin-option {
-      opacity: .65;
-    }
-
-    .admin-option.active-option {
-      opacity: 1;
-    }
-
-    .admin-option small {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-      margin-top: 2px;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     "&": "&amp;",
@@ -113,6 +59,111 @@ function normalizedVotes(selections, category) {
   return [];
 }
 
+function formatVoteTime(value) {
+  if (!value) return "Время неизвестно";
+
+  return new Date(value).toLocaleString("ru-RU", {
+    timeZone: "Asia/Almaty",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+function installExtraStyles() {
+  if ($("extra-styles")) return;
+
+  const style = document.createElement("style");
+  style.id = "extra-styles";
+  style.textContent = `
+    .voter-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .voter-card {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0d1720;
+    }
+
+    .voter-name {
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .voter-time {
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 9px;
+    }
+
+    .voter-picks {
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .voter-picks strong {
+      color: var(--text);
+    }
+
+    .admin-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      margin-top: 8px;
+    }
+
+    .admin-option input {
+      width: auto;
+      flex: 0 0 auto;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .admin-option span {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .admin-option small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .admin-option.disabled-option {
+      opacity: .55;
+    }
+
+    .voter-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .voter-actions button,
+    .admin-option button {
+      font-size: 12px;
+    }
+
+    .admin-option button {
+      flex: 0 0 auto;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function tab(name) {
   document.querySelectorAll(".tab").forEach(b =>
     b.classList.toggle("active", b.dataset.tab === name)
@@ -125,6 +176,10 @@ function tab(name) {
   if (name === "result" && currentEvent) {
     loadResult();
     loadVoteStats();
+  }
+
+  if (name === "admin" && currentUser) {
+    loadAdmin();
   }
 }
 
@@ -148,7 +203,6 @@ async function init() {
   }
 
   installExtraStyles();
-
   $("connection").textContent = "Подключаемся…";
 
   const { data: ev, error } = await sb
@@ -165,7 +219,8 @@ async function init() {
   currentEvent = ev;
 
   if (!ev) {
-    $("connection").textContent = "Создай гоночный вечер в SQL / админке";
+    $("connection").textContent =
+      "Создай гоночный вечер в SQL / админке";
     return;
   }
 
@@ -189,12 +244,12 @@ async function init() {
   }
 }
 
+// Загружаем все варианты, в том числе отключённые.
+// В самом голосовании отображаем только активные.
 async function loadOptions() {
-  // Загружаем ВСЕ варианты, чтобы видеть и неактивные
-  // в админке, результатах и истории.
   const { data, error } = await sb
     .from("options")
-    .select("id,category,label,active")
+    .select("id,category,label,active,sort_order")
     .order("sort_order");
 
   if (error) {
@@ -204,7 +259,6 @@ async function loadOptions() {
 
   categories = data || [];
 
-  // В голосовании показываем только активные варианты.
   $("vote-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
       <h2>${labels[cat]}</h2>
@@ -221,7 +275,6 @@ async function loadOptions() {
                 type="checkbox"
                 name="${cat}"
                 value="${o.id}"
-                data-category="${cat}"
               >
               <span>${escapeHtml(o.label)}</span>
             </label>
@@ -231,20 +284,20 @@ async function loadOptions() {
     </div>
   `).join("");
 
-  // Ограничение: максимум два выбора в каждой категории.
   categoryOrder.forEach(cat => {
-    document.querySelectorAll(`input[name="${cat}"]`).forEach(input => {
-      input.addEventListener("change", () => {
-        const checked = document.querySelectorAll(
-          `input[name="${cat}"]:checked`
-        );
+    document.querySelectorAll(`input[name="${cat}"]`)
+      .forEach(input => {
+        input.addEventListener("change", () => {
+          const checked = document.querySelectorAll(
+            `input[name="${cat}"]:checked`
+          );
 
-        if (checked.length > 2) {
-          input.checked = false;
-          alert("Можно выбрать не больше двух вариантов.");
-        }
+          if (checked.length > 2) {
+            input.checked = false;
+            alert("Можно выбрать не больше двух вариантов.");
+          }
+        });
       });
-    });
   });
 }
 
@@ -262,9 +315,11 @@ async function loadVotesCount() {
   $("vote-count").textContent = (count || 0) + " голосов";
 }
 
+// Новое голосование: только INSERT, никакого UPSERT.
 $("submit-vote").onclick = async () => {
   if (!currentEvent || !isOpen) return;
 
+  const button = $("submit-vote");
   const nickname = $("nickname").value.trim();
 
   if (!nickname) {
@@ -279,11 +334,9 @@ $("submit-vote").onclick = async () => {
       ...document.querySelectorAll(`input[name="${cat}"]:checked`)
     ].map(el => el.value);
 
-    if (checked.length === 1) {
-      selections[cat] = [checked[0], checked[0]];
-    } else {
-      selections[cat] = checked;
-    }
+    selections[cat] = checked.length === 1
+      ? [checked[0], checked[0]]
+      : checked;
   }
 
   if (!categoryOrder.some(cat => selections[cat].length > 0)) {
@@ -291,21 +344,53 @@ $("submit-vote").onclick = async () => {
     return;
   }
 
-  const { error } = await sb
-    .from("votes")
-    .upsert(
-      {
-        event_id: currentEvent.id,
-        nickname,
-        selections
-      },
-      { onConflict: "event_id,nickname" }
-    );
+  button.disabled = true;
 
-  if (error) {
-    alert("Не удалось сохранить голос: " + error.message);
+  // Дополнительная проверка ника перед отправкой.
+  const { data: existing, error: checkError } = await sb
+    .from("votes")
+    .select("nickname")
+    .eq("event_id", currentEvent.id)
+    .ilike("nickname", nickname)
+    .limit(1);
+
+  if (checkError) {
+    button.disabled = !isOpen;
+    alert("Не удалось проверить голос: " + checkError.message);
     return;
   }
+
+  if (existing?.length) {
+    button.disabled = !isOpen;
+    alert("Вы уже проголосовали. Повторно голосовать нельзя.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("votes")
+    .insert({
+      event_id: currentEvent.id,
+      nickname,
+      selections
+    });
+
+  if (error) {
+    button.disabled = !isOpen;
+
+    if (error.code === "23505") {
+      alert("Вы уже проголосовали. Повторно голосовать нельзя.");
+    } else {
+      alert("Не удалось сохранить голос: " + error.message);
+    }
+    return;
+  }
+
+  // После успешного голосования блокируем форму.
+  document.querySelectorAll("#vote-categories input")
+    .forEach(input => input.disabled = true);
+
+  $("nickname").disabled = true;
+  button.textContent = "Голос принят";
 
   await loadVotesCount();
   await loadVoteStats();
@@ -315,6 +400,7 @@ $("submit-vote").onclick = async () => {
 
 $("refresh").onclick = init;
 
+// Вход администратора.
 $("login").onclick = async () => {
   if (!sb) {
     msg("login-message", "Сначала настрой Supabase");
@@ -343,8 +429,9 @@ $("logout").onclick = async () => {
 };
 
 async function loadAdmin() {
-  $("login-panel").classList.add("hidden");
-  $("admin-panel").classList.remove("hidden");
+  if (!currentUser || !currentEvent) return;
+
+  installExtraStyles();
 
   const { data: profile, error } = await sb
     .from("admin_users")
@@ -359,14 +446,15 @@ async function loadAdmin() {
 
   if (!profile) {
     msg("login-message", "У этого аккаунта нет прав администратора.");
-
     await sb.auth.signOut();
     currentUser = null;
-
     $("admin-panel").classList.add("hidden");
     $("login-panel").classList.remove("hidden");
     return;
   }
+
+  $("login-panel").classList.add("hidden");
+  $("admin-panel").classList.remove("hidden");
 
   $("event-name").value = currentEvent.title;
 
@@ -374,6 +462,15 @@ async function loadAdmin() {
     ? "Закрыть голосование"
     : "Открыть голосование";
 
+  renderAdminOptions();
+  ensureAdminVotersPanel();
+
+  await loadAdminVoters();
+  await loadHistory();
+}
+
+// Список вариантов в админке.
+function renderAdminOptions() {
   $("admin-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
       <h2>${labels[cat]}</h2>
@@ -395,25 +492,36 @@ async function loadAdmin() {
         ${categories
           .filter(o => o.category === cat)
           .map(o => `
-            <label class="option admin-option ${o.active ? "active-option" : ""}">
+            <div class="admin-option ${o.active ? "" : "disabled-option"}">
               <input
                 type="checkbox"
                 data-toggle-option="${o.id}"
                 ${o.active ? "checked" : ""}
+                title="Активность варианта"
               >
+
               <span>
                 ${escapeHtml(o.label)}
-                <small>${o.active ? "Активен — доступен для голосования" : "Отключён — сохранён в базе"}</small>
+                <small>
+                  ${o.active ? "Активен" : "Отключён, сохранён в базе"}
+                </small>
               </span>
-            </label>
+
+              <button
+                class="btn danger"
+                data-delete-option="${o.id}"
+              >
+                Удалить
+              </button>
+            </div>
           `).join("") ||
           '<div class="muted">Вариантов пока нет</div>'}
       </div>
     </div>
   `).join("");
 
-  document.querySelectorAll("[data-add]").forEach(b => {
-    b.onclick = () => addOption(b.dataset.add);
+  document.querySelectorAll("[data-add]").forEach(button => {
+    button.onclick = () => addOption(button.dataset.add);
   });
 
   document.querySelectorAll("[data-toggle-option]").forEach(input => {
@@ -421,7 +529,10 @@ async function loadAdmin() {
       setOptionActive(input.dataset.toggleOption, input.checked);
   });
 
-  await loadHistory();
+  document.querySelectorAll("[data-delete-option]").forEach(button => {
+    button.onclick = () =>
+      deleteOption(button.dataset.deleteOption);
+  });
 }
 
 async function addOption(cat) {
@@ -430,14 +541,18 @@ async function addOption(cat) {
 
   const { error } = await sb
     .from("options")
-    .insert({ category: cat, label, active: true });
+    .insert({
+      category: cat,
+      label,
+      active: true
+    });
 
   if (error) {
     alert(error.message);
     return;
   }
 
-  await init();
+  await refreshAdminData();
 }
 
 async function setOptionActive(id, active) {
@@ -447,13 +562,157 @@ async function setOptionActive(id, active) {
     .eq("id", id);
 
   if (error) {
-    alert("Не удалось изменить статус варианта: " + error.message);
-    await init();
+    alert("Не удалось изменить активность: " + error.message);
     return;
   }
 
+  await refreshAdminData();
+}
+
+// Полное удаление варианта из таблицы options.
+async function deleteOption(id) {
+  const option = categories.find(o => o.id === id);
+  if (!option) return;
+
+  const confirmed = confirm(
+    `Полностью удалить вариант «${option.label}» из базы?\n\n` +
+    "Это действие нельзя отменить. В старых результатах название " +
+    "может перестать отображаться."
+  );
+
+  if (!confirmed) return;
+
+  const { error } = await sb
+    .from("options")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert("Не удалось удалить вариант: " + error.message);
+    return;
+  }
+
+  await refreshAdminData();
+  alert("Вариант полностью удалён.");
+}
+
+async function refreshAdminData() {
   await loadOptions();
-  await loadAdmin();
+  renderAdminOptions();
+  await loadAdminVoters();
+  await loadVotesCount();
+  await loadVoteStats();
+}
+
+// Блок участников добавляется в админку автоматически.
+function ensureAdminVotersPanel() {
+  if ($("admin-voters-panel")) return;
+
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.id = "admin-voters-panel";
+
+  panel.innerHTML = `
+    <h2>Участники текущего вечера</h2>
+    <div class="hint">
+      Список голосовавших, их выборы и время отправки голоса.
+      Последние голоса находятся сверху.
+    </div>
+    <div id="admin-voters-list" class="voter-list"></div>
+  `;
+
+  $("admin-categories").insertAdjacentElement("afterend", panel);
+}
+
+// Загружаем участников и время их голосования.
+async function loadAdminVoters() {
+  if (!currentEvent || !$("admin-voters-list")) return;
+
+  const { data, error } = await sb
+    .from("votes")
+    .select("nickname,selections,voted_at")
+    .eq("event_id", currentEvent.id)
+    .order("voted_at", { ascending: false });
+
+  if (error) {
+    $("admin-voters-list").innerHTML =
+      `<div class="muted">Ошибка загрузки: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const votes = data || [];
+
+  if (!votes.length) {
+    $("admin-voters-list").innerHTML =
+      '<div class="muted">Пока никто не проголосовал.</div>';
+    return;
+  }
+
+  $("admin-voters-list").innerHTML = votes.map(vote => {
+    const picks = categoryOrder.map(cat => {
+      const ids = normalizedVotes(vote.selections, cat);
+
+      const names = [...new Set(ids)].map(id => {
+        const count = ids.filter(x => x === id).length;
+        return optionLabel(id) + (count > 1 ? ` ×${count}` : "");
+      });
+
+      return `
+        <div>
+          ${labels[cat]}:
+          <strong>${escapeHtml(names.join(", ") || "—")}</strong>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="voter-card">
+        <div class="voter-name">${escapeHtml(vote.nickname)}</div>
+
+        <div class="voter-time">
+          Проголосовал: ${escapeHtml(formatVoteTime(vote.voted_at))}
+        </div>
+
+        <div class="voter-picks">${picks}</div>
+
+        <div class="voter-actions">
+          <button
+            class="btn danger"
+            data-delete-vote="${encodeURIComponent(vote.nickname)}"
+          >
+            Удалить голос
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-delete-vote]").forEach(button => {
+    button.onclick = () =>
+      deleteVote(decodeURIComponent(button.dataset.deleteVote));
+  });
+}
+
+// Удаление только голоса конкретного ника в текущем событии.
+async function deleteVote(nickname) {
+  if (!confirm(`Удалить голос участника «${nickname}»?`)) return;
+
+  const { error } = await sb
+    .from("votes")
+    .delete()
+    .eq("event_id", currentEvent.id)
+    .eq("nickname", nickname);
+
+  if (error) {
+    alert("Не удалось удалить голос: " + error.message);
+    return;
+  }
+
+  await loadAdminVoters();
+  await loadVotesCount();
+  await loadVoteStats();
+
+  alert("Голос удалён. Этот ник сможет проголосовать заново.");
 }
 
 $("save-event").onclick = async () => {
@@ -516,6 +775,7 @@ $("reset-votes").onclick = async () => {
   } else {
     await loadVotesCount();
     await loadVoteStats();
+    await loadAdminVoters();
     alert("Голоса удалены");
   }
 };
@@ -553,9 +813,13 @@ async function loadResult() {
       ${[0, 1].map(i => `
         <div class="panel">
           <div class="eyebrow">RACE ${i + 1}</div>
-          <h2>${escapeHtml(optionLabel(tracks[i] ?? "—"))}</h2>
-          <p>Класс: <strong>${escapeHtml(optionLabel(classes[i] ?? classes[0] ?? "—"))}</strong></p>
-          <p>Погода: <strong>${escapeHtml(optionLabel(weather[i] ?? weather[0] ?? "—"))}</strong></p>
+          <h2>${escapeHtml(optionLabel(tracks[i] ?? tracks[0] ?? "—"))}</h2>
+          <p>Класс:
+            <strong>${escapeHtml(optionLabel(classes[i] ?? classes[0] ?? "—"))}</strong>
+          </p>
+          <p>Погода:
+            <strong>${escapeHtml(optionLabel(weather[i] ?? weather[0] ?? "—"))}</strong>
+          </p>
         </div>
       `).join("")}
     </div>
@@ -565,12 +829,10 @@ async function loadResult() {
 async function loadVoteStats() {
   if (!currentEvent) return;
 
-  // Загружаем и ники, и сами выборы.
   const { data, error } = await sb
     .from("votes")
     .select("nickname,selections")
-    .eq("event_id", currentEvent.id)
-    .order("nickname");
+    .eq("event_id", currentEvent.id);
 
   if (error) {
     console.error("Ошибка загрузки статистики", error);
@@ -589,7 +851,6 @@ async function loadVoteStats() {
 
   let html = "";
 
-  // Общая инфографика по категориям.
   for (const cat of categoryOrder) {
     const tally = {};
 
@@ -612,6 +873,7 @@ async function loadVoteStats() {
     html += `
       <div class="stats-category">
         <h3>${labels[cat]}</h3>
+
         ${entries.length ? entries.map(item => {
           const percent = total
             ? Math.round(item.count / total * 100)
@@ -633,21 +895,11 @@ async function loadVoteStats() {
     `;
   }
 
-  // Индивидуальные голоса каждого участника.
   const votersHtml = votes.map(vote => {
-    const picksHtml = categoryOrder.map(cat => {
+    const picks = categoryOrder.map(cat => {
       const ids = normalizedVotes(vote.selections, cat);
 
-      if (!ids.length) {
-        return `
-          <div>
-            ${labels[cat]}: <strong>—</strong>
-          </div>
-        `;
-      }
-
-      // Группируем одинаковые варианты, чтобы показывать ×2.
-      const grouped = [...new Set(ids)].map(id => {
+      const names = [...new Set(ids)].map(id => {
         const count = ids.filter(x => x === id).length;
         return optionLabel(id) + (count > 1 ? ` ×${count}` : "");
       });
@@ -655,15 +907,15 @@ async function loadVoteStats() {
       return `
         <div>
           ${labels[cat]}:
-          <strong>${escapeHtml(grouped.join(", "))}</strong>
+          <strong>${escapeHtml(names.join(", ") || "—")}</strong>
         </div>
       `;
     }).join("");
 
     return `
       <div class="voter-card">
-        <div class="voter-name">${escapeHtml(vote.nickname || "Без ника")}</div>
-        <div class="voter-picks">${picksHtml}</div>
+        <div class="voter-name">${escapeHtml(vote.nickname)}</div>
+        <div class="voter-picks">${picks}</div>
       </div>
     `;
   }).join("");
@@ -678,13 +930,7 @@ async function loadVoteStats() {
 
     <div class="stats-category">
       <h3>Кто за что проголосовал</h3>
-      <div class="hint">
-        Все голоса участников отображаются открыто.
-        Если вариант выбран один раз, он считается за два голоса.
-      </div>
-      <div class="voter-list">
-        ${votersHtml}
-      </div>
+      <div class="voter-list">${votersHtml}</div>
     </div>
   `;
 }
