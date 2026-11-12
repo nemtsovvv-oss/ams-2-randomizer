@@ -150,7 +150,7 @@ async function loadOptions() {
   $("vote-categories").innerHTML = categoryOrder.map(cat => `
     <div class="panel">
       <h2>${labels[cat]}</h2>
-      <div class="hint">Выбери до двух вариантов. Один выбранный вариант считается за два голоса.</div>
+      <div class="hint">Выбери до двух вариантов. Если выберешь один вариант в категории - голос удвоится.</div>
       <div class="options">
         ${categories
           .filter(o => o.category === cat)
@@ -250,7 +250,7 @@ $("submit-vote").onclick = async () => {
   await loadVotesCount();
   await loadVoteStats();
 
-  alert("Голос сохранён. Его можно изменить до закрытия голосования.");
+  alert("Голос сохранён.");
 };
 
 $("refresh").onclick = init;
