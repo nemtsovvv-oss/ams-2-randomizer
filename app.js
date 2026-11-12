@@ -1,6 +1,6 @@
 // 1) Создай проект Supabase и вставь сюда Project URL и anon/public key.
 // anon key допустимо публиковать при корректных RLS policies. Никогда не вставляй service_role key.
-const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_URL = "https://edjwnpbjmpacftxbglbx.supabase.co";
 const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 const configured = !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
 const sb = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
