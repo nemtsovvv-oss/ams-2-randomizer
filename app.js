@@ -183,7 +183,6 @@ function installExtraStyles() {
     .gt3-admin-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .gt3-admin-fields .field{min-width:0}
     .gt3-history-lap{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
-    .gt3-history-lap:first-child{border-top:0;padding-top:0}
     .record-history{display:grid;gap:12px;margin-top:12px}
     .gt3-admin-add{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
     .gt3-admin-add h4{font-size:13px;margin:0 0 8px}
@@ -198,7 +197,6 @@ function installExtraStyles() {
   document.head.appendChild(style);
 }
 
-// Публичные пользователи после жеребьёвки видят только результат и рекорды.
 function applyEventView() {
   const publicResultsOnly = Boolean(currentEvent?.result) && !isAdmin;
 
@@ -482,7 +480,6 @@ $("submit-vote").onclick = async () => {
 
 $("refresh").onclick = init;
 
-// Авторизация администратора.
 $("login").onclick = async () => {
   if (!sb) {
     msg("login-message", "Сначала настрой Supabase");
@@ -563,6 +560,7 @@ async function loadAdmin() {
   renderAdminOptions();
   ensureAdminVotersPanel();
   ensureAdminResultsPanel();
+  installNewEventButton();
 
   if (currentEvent) {
     await loadAdminVoters();
@@ -848,11 +846,15 @@ async function deleteVote(nickname) {
   alert("Голос удалён. Этот ник сможет проголосовать заново.");
 }
 
+// Переименование текущего вечера.
 $("save-event").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
 
   const title = $("event-name").value.trim();
-  if (!title) return;
+  if (!title) {
+    alert("Введи название вечера.");
+    return;
+  }
 
   const { error } = await sb
     .from("events")
@@ -860,11 +862,97 @@ $("save-event").onclick = async () => {
     .eq("id", currentEvent.id);
 
   if (error) {
-    alert(error.message);
+    alert("Не удалось изменить название: " + error.message);
   } else {
+    alert("Название вечера изменено.");
     await init();
   }
 };
+
+// Кнопка создания нового вечера добавляется в админку.
+function installNewEventButton() {
+  if ($("create-new-event") || !$("save-event")) return;
+
+  const button = document.createElement("button");
+  button.id = "create-new-event";
+  button.className = "btn primary";
+  button.textContent = "Создать новый вечер";
+  button.style.marginTop = "10px";
+
+  $("save-event").insertAdjacentElement("afterend", button);
+  button.onclick = createNewRaceEvent;
+}
+
+async function createNewRaceEvent() {
+  if (!isAdmin) return;
+
+  const title = $("event-name").value.trim();
+
+  if (!title) {
+    alert("Введи название нового вечера.");
+    return;
+  }
+
+  if (!confirm(
+    `Создать новый гоночный вечер «${title}»?\n\n` +
+    "Предыдущий вечер будет сохранён в истории. " +
+    "Его гонки и хот-лапы останутся без изменений."
+  )) return;
+
+  const button = $("create-new-event");
+  button.disabled = true;
+
+  // Архивируем предыдущий вечер.
+  if (currentEvent) {
+    const { error: archiveError } = await sb
+      .from("events")
+      .update({ is_current: false })
+      .eq("id", currentEvent.id);
+
+    if (archiveError) {
+      button.disabled = false;
+      alert("Не удалось архивировать предыдущий вечер: " + archiveError.message);
+      return;
+    }
+  }
+
+  // Создаём новую запись, а не переименовываем старую.
+  const { data: newEvent, error: createError } = await sb
+    .from("events")
+    .insert({
+      title,
+      is_current: true,
+      voting_open: true,
+      result: null
+    })
+    .select("*")
+    .single();
+
+  if (createError) {
+    if (currentEvent) {
+      const { error: restoreError } = await sb
+        .from("events")
+        .update({ is_current: true })
+        .eq("id", currentEvent.id);
+
+      if (restoreError) {
+        console.error("Не удалось восстановить прежний вечер", restoreError);
+      }
+    }
+
+    button.disabled = false;
+    alert("Не удалось создать новый вечер: " + createError.message);
+    return;
+  }
+
+  currentEvent = newEvent;
+  isOpen = true;
+
+  await init();
+
+  alert("Новый гоночный вечер создан. Старые результаты сохранены.");
+  button.disabled = false;
+}
 
 $("toggle-event").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
@@ -920,7 +1008,7 @@ $("reset-votes").onclick = async () => {
   }
 };
 
-// GT3: загружаем гонки и отдельные круги.
+// GT3: загрузка гонок и отдельных кругов.
 async function loadGT3Records() {
   if (!sb) return;
 
@@ -1076,7 +1164,6 @@ function renderGT3Records() {
   `;
 }
 
-// Форма внесения кругов текущего гоночного вечера.
 async function renderGT3EntryForms() {
   const container = $("gt3-entry-content");
   if (!container || !isAdmin) return;
@@ -1178,7 +1265,6 @@ async function renderGT3EntryForms() {
   });
 }
 
-// Создаём или находим строку гонки, затем добавляем отдельный круг.
 async function addGT3Lap(raceNumber) {
   if (!isAdmin || !currentEvent) return;
 
@@ -1251,8 +1337,6 @@ async function addGT3Lap(raceNumber) {
   alert("Хот-лап добавлен в историю.");
 }
 
-// Изменение из формы текущего вечера переводит администратора
-// на отдельную страницу истории, где есть все поля выбранного круга.
 function focusGT3AdminLap(lapId) {
   if (!isAdmin) return;
 
@@ -1291,7 +1375,6 @@ async function deleteGT3Lap(lapId) {
   alert("Хот-лап удалён. Рекорды пересчитаны.");
 }
 
-// Отдельная страница управления всей историей GT3.
 function renderGT3AdminHistory() {
   const container = $("gt3-admin-history-content");
   if (!container || !isAdmin) return;
@@ -1485,7 +1568,6 @@ async function addHistoricalGT3Lap(raceId) {
   alert("Круг добавлен в историю.");
 }
 
-// Результат жеребьёвки и рекорд GT3 по трассе.
 async function loadResult() {
   if (!currentEvent) return;
 
