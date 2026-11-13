@@ -1871,17 +1871,18 @@ async function loadVoteStats() {
     return;
   }
 
+  // Яркая контрастная палитра круговых диаграмм.
   const colors = [
-    "#55C2A3",
-    "#5B9BDE",
-    "#E6B85C",
-    "#D87979",
-    "#A58BE0",
-    "#55B9C7",
-    "#D78DB8",
-    "#91B85A",
-    "#D78A55",
-    "#8B9BAE"
+    "#00E5FF",
+    "#FF3D71",
+    "#FFD600",
+    "#7C4DFF",
+    "#00E676",
+    "#FF9100",
+    "#2979FF",
+    "#F50057",
+    "#C6FF00",
+    "#E040FB"
   ];
 
   let chartsHtml = "";
