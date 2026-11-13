@@ -267,6 +267,74 @@ function installExtraStyles() {
       font-size:12px;
     }
 
+    /* Круговые диаграммы распределения голосов */
+    .stats-pie-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .stats-pie-card{
+      min-width:0;
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0d1720;
+    }
+
+    .stats-pie-card h3{
+      font-size:14px;
+      margin:0 0 14px;
+    }
+
+    .stats-pie-layout{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .stats-pie{
+      width:116px;
+      height:116px;
+      flex:0 0 116px;
+      border-radius:50%;
+    }
+
+    .stats-pie-legend{
+      display:grid;
+      gap:8px;
+      min-width:0;
+      flex:1;
+    }
+
+    .stats-pie-legend-item{
+      display:grid;
+      grid-template-columns:9px minmax(0,1fr);
+      gap:7px;
+      align-items:start;
+      font-size:11px;
+    }
+
+    .stats-pie-dot{
+      width:9px;
+      height:9px;
+      border-radius:50%;
+      margin-top:3px;
+    }
+
+    .stats-pie-name{
+      overflow-wrap:anywhere;
+      line-height:1.3;
+    }
+
+    .stats-pie-value{
+      display:block;
+      color:var(--muted);
+      margin-top:2px;
+      font-variant-numeric:tabular-nums;
+    }
+
     @media(max-width:600px){
       .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
       .gt3-lap-item{grid-template-columns:1fr}
@@ -292,6 +360,20 @@ function installExtraStyles() {
 
       .event-history-item{
         align-items:flex-start;
+      }
+
+      .stats-pie-grid{
+        grid-template-columns:1fr;
+      }
+
+      .stats-pie-layout{
+        justify-content:flex-start;
+      }
+
+      .stats-pie{
+        width:120px;
+        height:120px;
+        flex-basis:120px;
       }
     }
   `;
@@ -597,7 +679,6 @@ $("submit-vote").onclick = async () => {
   await loadVotesCount();
   await loadVoteStats();
 
-  // После отправки голоса автоматически открываем результат.
   tab("result");
 
   alert("Голос сохранён.");
@@ -969,7 +1050,6 @@ async function deleteVote(nickname) {
   alert("Голос удалён. Этот ник сможет проголосовать заново.");
 }
 
-// Переименование текущего вечера.
 $("save-event").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
 
@@ -992,7 +1072,6 @@ $("save-event").onclick = async () => {
   }
 };
 
-// Кнопка создания нового вечера добавляется в админку.
 function installNewEventButton() {
   if ($("create-new-event") || !$("save-event")) return;
 
@@ -1768,6 +1847,7 @@ async function loadResult() {
   `;
 }
 
+// Статистика голосования с круговыми диаграммами.
 async function loadVoteStats() {
   if (!currentEvent) return;
 
@@ -1791,7 +1871,20 @@ async function loadVoteStats() {
     return;
   }
 
-  let html = "";
+  const colors = [
+    "#55C2A3",
+    "#5B9BDE",
+    "#E6B85C",
+    "#D87979",
+    "#A58BE0",
+    "#55B9C7",
+    "#D78DB8",
+    "#91B85A",
+    "#D78A55",
+    "#8B9BAE"
+  ];
+
+  let chartsHtml = "";
 
   for (const cat of categoryOrder) {
     const tally = {};
@@ -1803,28 +1896,70 @@ async function loadVoteStats() {
     });
 
     const entries = Object.entries(tally)
-      .map(([id, count]) => ({ id, count, label: optionLabel(id) }))
+      .map(([id, count]) => ({
+        id,
+        count,
+        label: optionLabel(id)
+      }))
       .sort((a, b) => b.count - a.count);
 
     const total = entries.reduce((sum, item) => sum + item.count, 0);
 
-    html += `
-      <div class="stats-category">
-        <h3>${labels[cat]}</h3>
-        ${entries.length ? entries.map(item => {
-          const percent = total ? Math.round(item.count / total * 100) : 0;
+    let angle = 0;
 
-          return `
-            <div class="stat-row">
-              <div class="stat-name">${escapeHtml(item.label)}</div>
-              <div class="stat-track">
-                <div class="stat-fill" style="width:${percent}%"></div>
-              </div>
-              <div class="stat-value">${item.count} · ${percent}%</div>
-            </div>
-          `;
-        }).join("") : '<div class="muted">Нет голосов в этой категории.</div>'}
-        <div class="hint">Всего голосов в категории: ${total}</div>
+    const gradientParts = entries.map((item, index) => {
+      const start = angle;
+      angle += total ? item.count / total * 360 : 0;
+
+      return `${colors[index % colors.length]} ${start}deg ${angle}deg`;
+    });
+
+    const gradient = total
+      ? `conic-gradient(${gradientParts.join(", ")})`
+      : "#273746";
+
+    const legend = entries.map((item, index) => {
+      const percent = total
+        ? (item.count / total * 100).toFixed(1).replace(".", ",")
+        : "0";
+
+      return `
+        <div class="stats-pie-legend-item">
+          <span
+            class="stats-pie-dot"
+            style="background:${colors[index % colors.length]}"
+          ></span>
+
+          <div class="stats-pie-name">
+            ${escapeHtml(item.label)}
+            <span class="stats-pie-value">
+              ${item.count} голосов · ${percent}%
+            </span>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    chartsHtml += `
+      <div class="stats-pie-card">
+        <h3>${labels[cat]}</h3>
+
+        <div class="stats-pie-layout">
+          <div
+            class="stats-pie"
+            style="background:${gradient}"
+            role="img"
+            aria-label="Распределение голосов: ${escapeHtml(labels[cat])}"
+          ></div>
+
+          <div class="stats-pie-legend">
+            ${legend || '<div class="muted">Нет голосов</div>'}
+          </div>
+        </div>
+
+        <div class="hint" style="margin-top:12px">
+          Всего: ${total} голосов
+        </div>
       </div>
     `;
   }
@@ -1859,7 +1994,11 @@ async function loadVoteStats() {
       Участников: ${votes.length}.
       Каждый участник даёт до двух голосов в каждой категории.
     </div>
-    ${html}
+
+    <div class="stats-pie-grid">
+      ${chartsHtml}
+    </div>
+
     <div class="stats-category">
       <h3>Кто за что проголосовал</h3>
       <div class="voter-list">${votersHtml}</div>
@@ -1948,7 +2087,6 @@ async function deleteArchivedEvent(eventId) {
   const button = document.querySelector(`[data-delete-event="${eventId}"]`);
   if (button) button.disabled = true;
 
-  // Сначала удаляем голоса этого вечера.
   const { error: votesError } = await sb
     .from("votes")
     .delete()
@@ -1960,7 +2098,6 @@ async function deleteArchivedEvent(eventId) {
     return;
   }
 
-  // Затем удаляем гонки GT3. Хот-лапы связаны с ними через ON DELETE CASCADE.
   const { error: racesError } = await sb
     .from("gt3_race_results")
     .delete()
@@ -1972,7 +2109,6 @@ async function deleteArchivedEvent(eventId) {
     return;
   }
 
-  // Последним удаляем само архивное событие.
   const { error: eventError } = await sb
     .from("events")
     .delete()
