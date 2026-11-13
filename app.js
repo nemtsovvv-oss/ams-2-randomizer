@@ -22,12 +22,20 @@ let gt3Races = [];
 let gt3Laps = [];
 let gt3Events = [];
 
-const categoryOrder = ["track", "car_class", "weather"];
+const categoryOrder = [
+  "track",
+  "car_class",
+  "weather",
+  "time_of_day",
+  "damage"
+];
 
 const labels = {
   track: "Трасса",
   car_class: "Класс автомобиля",
-  weather: "Погода"
+  weather: "Погода",
+  time_of_day: "Время суток",
+  damage: "Повреждения"
 };
 
 function escapeHtml(s) {
@@ -187,10 +195,104 @@ function installExtraStyles() {
     .gt3-admin-add{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
     .gt3-admin-add h4{font-size:13px;margin:0 0 8px}
     .admin-page-note{margin-bottom:12px}
+
+    /* Голосование: трассы в две колонки */
+    #vote-categories .vote-track-panel .options{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:7px;
+    }
+
+    #vote-categories .vote-track-panel .option{
+      font-size:12px;
+      padding:8px;
+      min-width:0;
+    }
+
+    #vote-categories .vote-track-panel .option span{
+      overflow-wrap:anywhere;
+    }
+
+    /* Время суток и повреждения рядом */
+    #vote-categories .vote-pair-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      align-items:start;
+    }
+
+    #vote-categories .vote-pair-grid .panel{
+      min-width:0;
+      padding:12px;
+    }
+
+    #vote-categories .vote-pair-grid h2{
+      font-size:15px;
+    }
+
+    #vote-categories .vote-pair-grid .hint{
+      font-size:11px;
+    }
+
+    #vote-categories .vote-pair-grid .option{
+      font-size:12px;
+      padding:8px;
+    }
+
+    .event-history-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:11px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      margin-top:8px;
+      background:#0d1720;
+    }
+
+    .event-history-info{
+      min-width:0;
+      overflow-wrap:anywhere;
+    }
+
+    .event-history-info small{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+    }
+
+    .event-history-item button{
+      flex:0 0 auto;
+      font-size:12px;
+    }
+
     @media(max-width:600px){
       .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
       .gt3-lap-item{grid-template-columns:1fr}
       .gt3-lap-time{font-size:18px}
+
+      #vote-categories .vote-pair-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:7px;
+      }
+
+      #vote-categories .vote-pair-grid .panel{
+        padding:9px;
+      }
+
+      #vote-categories .vote-pair-grid h2{
+        font-size:13px;
+      }
+
+      #vote-categories .vote-pair-grid .option{
+        font-size:11px;
+        padding:7px 5px;
+      }
+
+      .event-history-item{
+        align-items:flex-start;
+      }
     }
   `;
 
@@ -335,21 +437,9 @@ async function init() {
   applyEventView();
 }
 
-async function loadOptions() {
-  const { data, error } = await sb
-    .from("options")
-    .select("id,category,label,active,sort_order")
-    .order("sort_order");
-
-  if (error) {
-    showError("Ошибка загрузки вариантов", error);
-    return;
-  }
-
-  categories = data || [];
-
-  $("vote-categories").innerHTML = categoryOrder.map(cat => `
-    <div class="panel">
+function renderVoteCategory(cat, extraClass = "") {
+  return `
+    <div class="panel ${extraClass}">
       <h2>${labels[cat]}</h2>
       <div class="hint">
         Выбери до двух вариантов. Если выберешь один вариант
@@ -367,7 +457,31 @@ async function loadOptions() {
           '<div class="muted">Пока нет активных вариантов</div>'}
       </div>
     </div>
-  `).join("");
+  `;
+}
+
+async function loadOptions() {
+  const { data, error } = await sb
+    .from("options")
+    .select("id,category,label,active,sort_order")
+    .order("sort_order");
+
+  if (error) {
+    showError("Ошибка загрузки вариантов", error);
+    return;
+  }
+
+  categories = data || [];
+
+  $("vote-categories").innerHTML = `
+    ${renderVoteCategory("track", "vote-track-panel")}
+    ${renderVoteCategory("car_class")}
+    ${renderVoteCategory("weather")}
+    <div class="vote-pair-grid">
+      ${renderVoteCategory("time_of_day")}
+      ${renderVoteCategory("damage")}
+    </div>
+  `;
 
   categoryOrder.forEach(cat => {
     document.querySelectorAll(`input[name="${cat}"]`).forEach(input => {
@@ -474,6 +588,9 @@ $("submit-vote").onclick = async () => {
 
   await loadVotesCount();
   await loadVoteStats();
+
+  // После отправки голоса автоматически открываем результат.
+  tab("result");
 
   alert("Голос сохранён.");
 };
@@ -902,7 +1019,6 @@ async function createNewRaceEvent() {
   const button = $("create-new-event");
   button.disabled = true;
 
-  // Архивируем предыдущий вечер.
   if (currentEvent) {
     const { error: archiveError } = await sb
       .from("events")
@@ -916,7 +1032,6 @@ async function createNewRaceEvent() {
     }
   }
 
-  // Создаём новую запись, а не переименовываем старую.
   const { data: newEvent, error: createError } = await sb
     .from("events")
     .insert({
@@ -1597,6 +1712,8 @@ async function loadResult() {
   const tracks = resultValues(result.track);
   const classes = resultValues(result.car_class);
   const weather = resultValues(result.weather);
+  const timeOfDay = resultValues(result.time_of_day);
+  const damage = resultValues(result.damage);
 
   $("result-card").innerHTML = `
     <div class="eyebrow">RACE NIGHT / RESULTS</div>
@@ -1605,6 +1722,8 @@ async function loadResult() {
         const trackName = optionLabel(tracks[index] ?? tracks[0] ?? "—");
         const carClass = optionLabel(classes[index] ?? classes[0] ?? "—");
         const weatherName = optionLabel(weather[index] ?? weather[0] ?? "—");
+        const timeName = optionLabel(timeOfDay[index] ?? timeOfDay[0] ?? "—");
+        const damageName = optionLabel(damage[index] ?? damage[0] ?? "—");
         const record = getBestRecord(trackName);
 
         return `
@@ -1613,6 +1732,8 @@ async function loadResult() {
             <h2>${escapeHtml(trackName)}</h2>
             <p>Класс: <strong>${escapeHtml(carClass)}</strong></p>
             <p>Погода: <strong>${escapeHtml(weatherName)}</strong></p>
+            <p>Время суток: <strong>${escapeHtml(timeName)}</strong></p>
+            <p>Повреждения: <strong>${escapeHtml(damageName)}</strong></p>
 
             ${isGT3Class(classes[index] ?? classes[0]) ? `
               <div class="record-highlight">
@@ -1740,37 +1861,131 @@ async function loadVoteStats() {
   `;
 }
 
+// История вечеров с возможностью удаления архивных событий.
 async function loadHistory() {
-  if (!currentEvent) return;
+  const historyContainer = $("history");
+  if (!historyContainer) return;
 
   const { data, error } = await sb
     .from("events")
-    .select("title,result,created_at")
+    .select("id,title,result,created_at,is_current")
     .eq("is_current", false)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(50);
 
   if (error) {
     console.error(error);
+    historyContainer.innerHTML =
+      `<div class="muted">Не удалось загрузить историю: ${escapeHtml(error.message)}</div>`;
     return;
   }
 
-  $("history").innerHTML = (data || []).map(event => {
+  historyContainer.innerHTML = (data || []).map(event => {
     const tracks = resultValues(event.result?.track);
     const trackNames = tracks.map(optionLabel).join(" / ");
 
     return `
-      <div class="item">
-        <span>
-          ${escapeHtml(event.title)} ·
-          ${event.result ? escapeHtml(trackNames) : "Без результата"}
-        </span>
-        <small class="muted">
-          ${new Date(event.created_at).toLocaleDateString("ru-RU")}
-        </small>
+      <div class="event-history-item">
+        <div class="event-history-info">
+          <strong>${escapeHtml(event.title)}</strong>
+          <small>
+            ${event.result ? escapeHtml(trackNames) : "Без результата"}
+            · ${new Date(event.created_at).toLocaleDateString("ru-RU")}
+          </small>
+        </div>
+        ${isAdmin ? `
+          <button
+            class="btn danger"
+            data-delete-event="${event.id}"
+          >Удалить</button>
+        ` : ""}
       </div>
     `;
   }).join("") || '<div class="muted">История пока пуста</div>';
+
+  document.querySelectorAll("[data-delete-event]").forEach(button => {
+    button.onclick = () => deleteArchivedEvent(button.dataset.deleteEvent);
+  });
+}
+
+async function deleteArchivedEvent(eventId) {
+  if (!isAdmin || !eventId) return;
+
+  const event = await sb
+    .from("events")
+    .select("id,title,is_current")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (event.error) {
+    alert("Не удалось проверить событие: " + event.error.message);
+    return;
+  }
+
+  if (!event.data) {
+    alert("Это событие уже удалено.");
+    await loadHistory();
+    return;
+  }
+
+  if (event.data.is_current) {
+    alert("Нельзя удалить текущий гоночный вечер.");
+    return;
+  }
+
+  if (!confirm(
+    `Полностью удалить вечер «${event.data.title}»?\n\n` +
+    "Будут удалены его голоса, записи GT3 и все хот-лапы. " +
+    "Это действие нельзя отменить."
+  )) return;
+
+  const button = document.querySelector(`[data-delete-event="${eventId}"]`);
+  if (button) button.disabled = true;
+
+  // Сначала удаляем голоса этого вечера.
+  const { error: votesError } = await sb
+    .from("votes")
+    .delete()
+    .eq("event_id", eventId);
+
+  if (votesError) {
+    if (button) button.disabled = false;
+    alert("Не удалось удалить голоса: " + votesError.message);
+    return;
+  }
+
+  // Затем удаляем гонки GT3. Хот-лапы связаны с ними через ON DELETE CASCADE.
+  const { error: racesError } = await sb
+    .from("gt3_race_results")
+    .delete()
+    .eq("event_id", eventId);
+
+  if (racesError) {
+    if (button) button.disabled = false;
+    alert("Не удалось удалить записи GT3: " + racesError.message);
+    return;
+  }
+
+  // Последним удаляем само архивное событие.
+  const { error: eventError } = await sb
+    .from("events")
+    .delete()
+    .eq("id", eventId)
+    .eq("is_current", false);
+
+  if (eventError) {
+    if (button) button.disabled = false;
+    alert(
+      "Голоса и записи GT3 удалены, но само событие удалить не удалось: " +
+      eventError.message
+    );
+    return;
+  }
+
+  await loadHistory();
+  await loadGT3Records();
+
+  alert("Гоночный вечер и все связанные с ним данные удалены.");
 }
 
 if (sb) {
