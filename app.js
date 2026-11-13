@@ -213,7 +213,7 @@ function installExtraStyles() {
       overflow-wrap:anywhere;
     }
 
-    /* Время суток и повреждения рядом */
+    /* Парные категории: класс/погода и время суток/повреждения */
     #vote-categories .vote-pair-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -390,6 +390,10 @@ async function init() {
   }
 
   installExtraStyles();
+
+  // Кнопка обновления больше не нужна.
+  $("refresh")?.remove();
+
   $("connection").textContent = "Подключаемся…";
 
   const { data: ev, error } = await sb
@@ -441,10 +445,6 @@ function renderVoteCategory(cat, extraClass = "") {
   return `
     <div class="panel ${extraClass}">
       <h2>${labels[cat]}</h2>
-      <div class="hint">
-        Выбери до двух вариантов. Если выберешь один вариант
-        в категории — голос удвоится.
-      </div>
       <div class="options">
         ${categories
           .filter(option => option.category === cat && option.active)
@@ -474,9 +474,17 @@ async function loadOptions() {
   categories = data || [];
 
   $("vote-categories").innerHTML = `
+    <div class="hint" style="margin-bottom:12px">
+      Выбери до двух вариантов в каждой категории. Если выберешь один вариант — твой голос в этой категории удвоится.
+    </div>
+
     ${renderVoteCategory("track", "vote-track-panel")}
-    ${renderVoteCategory("car_class")}
-    ${renderVoteCategory("weather")}
+
+    <div class="vote-pair-grid">
+      ${renderVoteCategory("car_class")}
+      ${renderVoteCategory("weather")}
+    </div>
+
     <div class="vote-pair-grid">
       ${renderVoteCategory("time_of_day")}
       ${renderVoteCategory("damage")}
@@ -594,8 +602,6 @@ $("submit-vote").onclick = async () => {
 
   alert("Голос сохранён.");
 };
-
-$("refresh").onclick = init;
 
 $("login").onclick = async () => {
   if (!sb) {
