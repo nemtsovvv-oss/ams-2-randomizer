@@ -1293,23 +1293,16 @@ async function playDrawReveal(result) {
       '<div class="draw-subtitle" id="draw-status">Готовим первый розыгрыш…</div>' +
       '<div class="draw-drum-window" id="draw-drum-window"><div class="draw-drum-list" id="draw-drum-list"></div><div class="draw-drum-selection"></div></div>' +
       '<div class="draw-picked" id="draw-picked">Определяем конфигурацию гонок</div>' +
-      '<div class="draw-footer">' +
-        '<div class="draw-progress"><span></span></div>' +
-        '<button class="draw-skip" type="button">Пропустить</button>' +
-      '</div>' +
+      '<div class="draw-footer"><div class="draw-progress"><span></span></div><button class="draw-skip" type="button">Пропустить</button></div>' +
     '</div>';
   document.body.appendChild(overlay);
 
   let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    overlay.remove();
-  };
+  const finish = () => { if (!finished) { finished = true; overlay.remove(); } };
   overlay.querySelector(".draw-skip").onclick = finish;
 
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const drumWindow = overlay.querySelector("#draw-drum-window");
   const drumList = overlay.querySelector("#draw-drum-list");
   const picked = overlay.querySelector("#draw-picked");
@@ -1324,56 +1317,60 @@ async function playDrawReveal(result) {
       const chosen = resultValues(result && result[cat]);
       const finalId = chosen[race] !== undefined ? chosen[race] : chosen[0];
       const finalLabel = finalId !== undefined ? optionLabel(finalId) : "—";
-
       overlay.querySelector("#draw-status").textContent =
-        "ГОНКА 0" + (race + 1) + " · " + labels[cat].toUpperCase();
-      picked.textContent = finalLabel;
-      picked.classList.remove("is-revealed");
+        "ГОНКА 0" + (race + 1) + " · " + (labels[cat] || cat).toUpperCase();
 
       if (cat === "track") {
         drumWindow.classList.remove("is-hidden");
         picked.textContent = "Выбираем трассу…";
-        const pool = categories
-          .filter(item => item.category === cat && item.active)
-          .map(item => ({ id: String(item.id), label: item.label }));
+
+        const pool = (Array.isArray(categories) ? categories : [])
+          .filter(item => item && item.category === "track" && item.active)
+          .map(item => ({ id: String(item.id), label: String(item.label || "") }))
+          .filter(item => item.label);
         if (!pool.some(item => item.id === String(finalId))) {
           pool.push({ id: String(finalId), label: finalLabel });
         }
         if (!pool.length) pool.push({ id: String(finalId), label: finalLabel });
 
         const winnerIndex = Math.max(0, pool.findIndex(item => item.id === String(finalId)));
-        const copies = 5;
-        const sequence = Array.from({ length: copies }, () => pool).flat();
-        drumList.innerHTML = sequence.map((item, index) =>
-          '<div class="draw-drum-item' + (index % pool.length === winnerIndex ? ' is-winner' : '') + '">' +
-          escapeHtml(item.label) + '</div>'
+        const sequence = Array.from({ length: 9 }, () => pool).flat();
+        drumList.innerHTML = sequence.map(item =>
+          '<div class="draw-drum-item">' + escapeHtml(item.label) + '</div>'
         ).join("");
+
+        // Start with the selected row centered so the picker remains readable
+        // even when motion is reduced or CSS animation is unavailable.
+        const targetIndex = pool.length * 7 + winnerIndex;
+        const targetY = targetIndex * rowHeight - rowHeight;
         drumList.style.transition = "none";
-        drumList.style.transform = "translateY(-" + rowHeight + "px)";
+        drumList.style.transform = "translate3d(0,-" + targetY + "px,0)";
+        const rows = drumList.children;
+        if (rows[targetIndex]) rows[targetIndex].classList.add("is-winner");
         void drumList.offsetHeight;
 
-        const targetIndex = pool.length * 4 + winnerIndex;
-        if (reduceMotion) {
-          drumList.style.transform = "translateY(-" + (targetIndex * rowHeight - rowHeight) + "px)";
-        } else {
-          drumList.style.transition = "transform 2400ms cubic-bezier(.10,.78,.12,1)";
-          drumList.style.transform = "translateY(-" + (targetIndex * rowHeight - rowHeight) + "px)";
-          await delay(2450);
+        if (!reduced && pool.length > 1) {
+          const startY = (pool.length * 2 + winnerIndex) * rowHeight - rowHeight;
+          drumList.style.transform = "translate3d(0,-" + startY + "px,0)";
+          void drumList.offsetHeight;
+          await delay(50);
+          drumList.style.transition = "transform 2800ms cubic-bezier(.12,.72,.12,1)";
+          drumList.style.transform = "translate3d(0,-" + targetY + "px,0)";
+          await delay(2850);
         }
         if (finished) break;
+        picked.textContent = finalLabel;
+        picked.classList.add("is-revealed");
       } else {
         drumWindow.classList.add("is-hidden");
-        await delay(reduceMotion ? 20 : 110);
-        if (finished) break;
+        picked.classList.remove("is-revealed");
+        picked.textContent = finalLabel;
+        await delay(180);
       }
 
-      picked.textContent = finalLabel;
-      picked.classList.remove("is-revealed");
-      void picked.offsetWidth;
-      if (cat === "track") picked.classList.add("is-revealed");
       completed++;
       progress.style.width = (completed / total * 100) + "%";
-      await delay(reduceMotion ? 20 : 180);
+      await delay(180);
     }
   }
 
@@ -1381,7 +1378,7 @@ async function playDrawReveal(result) {
     drumWindow.classList.add("is-hidden");
     overlay.querySelector("#draw-status").textContent = "ЖЕРЕБЬЁВКА ЗАВЕРШЕНА";
     picked.textContent = "Конфигурации обеих гонок определены";
-    await delay(reduceMotion ? 100 : 700);
+    await delay(700);
     finish();
   }
 }
