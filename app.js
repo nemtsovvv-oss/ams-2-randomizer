@@ -17,6 +17,9 @@ let categories = [];
 let currentUser = null;
 let isAdmin = false;
 let isOpen = true;
+let adminLoaded = false;
+let lastStatsLoadedAt = 0;
+let lastRecordsLoadedAt = 0;
 
 let gt3Races = [];
 let gt3Laps = [];
@@ -374,74 +377,22 @@ function installExtraStyles() {
       font-size:12px;
     }
 
-    /* Круговые диаграммы распределения голосов */
-    .stats-pie-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .stats-pie-card{
-      min-width:0;
-      padding:14px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:#0d1720;
-    }
-
-    .stats-pie-card h3{
-      font-size:14px;
-      margin:0 0 14px;
-    }
-
-    .stats-pie-layout{
-      display:flex;
-      align-items:center;
-      gap:14px;
-    }
-
-    .stats-pie{
-      width:116px;
-      height:116px;
-      flex:0 0 116px;
-      border-radius:50%;
-    }
-
-    .stats-pie-legend{
-      display:grid;
-      gap:8px;
-      min-width:0;
-      flex:1;
-    }
-
-    .stats-pie-legend-item{
-      display:grid;
-      grid-template-columns:9px minmax(0,1fr);
-      gap:7px;
-      align-items:start;
-      font-size:11px;
-    }
-
-    .stats-pie-dot{
-      width:9px;
-      height:9px;
-      border-radius:50%;
-      margin-top:3px;
-    }
-
-    .stats-pie-name{
-      overflow-wrap:anywhere;
-      line-height:1.3;
-    }
-
-    .stats-pie-value{
-      display:block;
-      color:var(--muted);
-      margin-top:2px;
-      font-variant-numeric:tabular-nums;
-    }
-
+    .stats-bar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+    .stats-bar-card{min-width:0;padding:11px;border:1px solid var(--line);border-radius:11px;background:#0d1720}
+    .stats-bar-card h3{font-size:13px;margin:0 0 9px}
+    .stats-bar-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;margin:7px 0}
+    .stats-bar-name{font-size:11px;min-width:0;overflow-wrap:anywhere}
+    .stats-bar-value{font-size:10px;color:var(--muted);white-space:nowrap}
+    .stats-bar-track{grid-column:1/-1;height:5px;border-radius:8px;background:#1b2a36;overflow:hidden}
+    .stats-bar-fill{height:100%;border-radius:8px}
+    .category-icon{display:inline-grid;place-items:center;width:24px;height:24px;margin-right:7px;border-radius:7px;background:#b9f36b12;font-size:15px;vertical-align:-3px}
+    .option-icon{display:inline-grid;place-items:center;flex:0 0 20px;width:20px;font-size:14px}
+    .admin-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin:10px 0}
+    .admin-add-row input{min-width:0}.admin-options{gap:6px;margin-top:8px}
+    .admin-options .admin-option{margin:0;padding:8px;min-width:0}
+    .admin-option-label{min-width:0;overflow-wrap:anywhere;font-size:12px}
+    .admin-option-label small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+    .admin-delete{padding:3px 8px;min-width:30px;font-size:16px;line-height:1}
     @media(max-width:600px){
       .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
       .gt3-lap-item{grid-template-columns:1fr}
@@ -530,37 +481,12 @@ function tab(name) {
     name = "records";
   }
 
-  document.querySelectorAll(".tab").forEach(button =>
-    button.classList.toggle("active", button.dataset.tab === name)
-  );
-
-  ["vote", "result", "records", "admin", "gt3-admin"].forEach(id => {
-    const section = $(id);
-    if (!section) return;
-    section.classList.toggle("hidden", id !== name);
-    if (id === name) {
-      section.classList.remove("section-enter");
-      void section.offsetWidth;
-      section.classList.add("section-enter");
-    }
-  });
-
-  if (name === "result" && currentEvent) {
-    loadResult();
-    loadVoteStats();
-  }
-
-  if (name === "records") {
-    loadGT3Records();
-  }
-
-  if (name === "admin" && currentUser) {
-    loadAdmin();
-  }
-
-  if (name === "gt3-admin" && isAdmin) {
-    loadGT3Records();
-  }
+  document.querySelectorAll(".tab").forEach(button => button.classList.toggle("active", button.dataset.tab === name));
+  ["vote", "result", "records", "admin", "gt3-admin"].forEach(id => { const section=$(id); if(section) section.classList.toggle("hidden",id!==name); });
+  if(name==="result"&&currentEvent&&Date.now()-lastStatsLoadedAt>20000){loadResult();loadVoteStats();}
+  if(name==="records"&&Date.now()-lastRecordsLoadedAt>30000)loadGT3Records();
+  if(name==="admin"&&currentUser&&!adminLoaded)loadAdmin();
+  if(name==="gt3-admin"&&isAdmin&&Date.now()-lastRecordsLoadedAt>30000)loadGT3Records();
 
   applyEventView();
 }
@@ -615,6 +541,7 @@ async function init() {
   }
 
   isOpen = ev.voting_open;
+  adminLoaded = false;
 
   $("event-title").textContent = ev.title;
   $("event-state").textContent = isOpen
@@ -636,17 +563,20 @@ async function init() {
   applyEventView();
 }
 
+const categoryIcons = {track:"🏁",car_class:"🚘",weather:"🌦️",time_of_day:"🌇",damage:"🔧"};
 function renderVoteCategory(cat, extraClass = "") {
   const winners = resultValues(currentEvent?.result?.[cat]).map(String);
+  const icon = categoryIcons[cat] || "•";
   return `
     <div class="panel ${extraClass}">
-      <h2>${labels[cat]}</h2>
+      <h2><span class="category-icon" aria-hidden="true">${icon}</span>${labels[cat]}</h2>
       <div class="options">
         ${categories
           .filter(option => option.category === cat && option.active)
           .map(option => `
             <label class="option ${winners.includes(String(option.id)) ? "winning-option" : ""}">
               <input type="checkbox" name="${cat}" value="${option.id}">
+              <span class="option-icon" aria-hidden="true">${icon}</span>
               <span>${escapeHtml(option.label)}</span>
             </label>
           `).join("") ||
@@ -864,6 +794,7 @@ async function loadAdmin() {
   }
 
   isAdmin = true;
+  adminLoaded = true;
 
   $("login-panel").classList.add("hidden");
   $("admin-panel").classList.remove("hidden");
@@ -892,39 +823,14 @@ async function loadAdmin() {
 }
 
 function renderAdminOptions() {
-  $("admin-categories").innerHTML = categoryOrder.map(cat => `
-    <div class="panel">
-      <h2>${labels[cat]}</h2>
-
-      <div class="field">
-        <label>Добавить вариант</label>
-        <input id="new-${cat}" maxlength="80" placeholder="Название варианта">
-      </div>
-
-      <button class="btn primary" data-add="${cat}">Добавить</button>
-
-      <div class="list">
-        ${categories
-          .filter(option => option.category === cat)
-          .map(option => `
-            <div class="admin-option ${option.active ? "" : "disabled-option"}">
-              <input
-                type="checkbox"
-                data-toggle-option="${option.id}"
-                ${option.active ? "checked" : ""}
-                title="Активность варианта"
-              >
-              <span>
-                ${escapeHtml(option.label)}
-                <small>${option.active ? "Активен" : "Отключён, сохранён в базе"}</small>
-              </span>
-              <button class="btn danger" data-delete-option="${option.id}">Удалить</button>
-            </div>
-          `).join("") ||
-          '<div class="muted">Вариантов пока нет</div>'}
-      </div>
-    </div>
-  `).join("");
+  $("admin-categories").innerHTML = categoryOrder.map(cat => {
+    const icon=categoryIcons[cat]||"•";
+    return `<div class="panel admin-category-panel"><h2><span class="category-icon">${icon}</span>${labels[cat]}</h2>
+      <div class="admin-add-row"><input id="new-${cat}" maxlength="80" placeholder="Новый вариант"><button class="btn primary" data-add="${cat}">Добавить</button></div>
+      <div class="options admin-options">${categories.filter(option=>option.category===cat).map(option=>`
+        <label class="option admin-option ${option.active?"":"disabled-option"}"><input type="checkbox" data-toggle-option="${option.id}" ${option.active?"checked":""} title="Активность варианта"><span class="option-icon">${icon}</span><span class="admin-option-label">${escapeHtml(option.label)}<small>${option.active?"Активен":"Отключён"}</small></span><button type="button" class="btn danger admin-delete" data-delete-option="${option.id}">×</button></label>
+      `).join("")||'<div class="muted">Вариантов пока нет</div>'}</div></div>`;
+  }).join("");
 
   document.querySelectorAll("[data-add]").forEach(button => {
     button.onclick = () => addOption(button.dataset.add);
@@ -1096,6 +1002,7 @@ async function loadAdminVoters() {
     return;
   }
 
+  lastStatsLoadedAt = Date.now();
   const votes = data || [];
 
   if (!votes.length) {
@@ -1164,40 +1071,10 @@ async function deleteVote(nickname) {
   showNotice("Голос удалён. Этот ник сможет проголосовать заново.");
 }
 
-$("save-event").onclick = async () => {
-  if (!currentEvent || !isAdmin) return;
-
-  const title = $("event-name").value.trim();
-  if (!title) {
-    showNotice("Введи название вечера.");
-    return;
-  }
-
-  const { error } = await sb
-    .from("events")
-    .update({ title })
-    .eq("id", currentEvent.id);
-
-  if (error) {
-    showNotice("Не удалось изменить название: " + error.message);
-  } else {
-    showNotice("Название вечера изменено.");
-    await init();
-  }
-};
-
-function installNewEventButton() {
-  if ($("create-new-event") || !$("save-event")) return;
-
-  const button = document.createElement("button");
-  button.id = "create-new-event";
-  button.className = "btn primary";
-  button.textContent = "Создать новый вечер";
-  button.style.marginTop = "10px";
-
-  $("save-event").insertAdjacentElement("afterend", button);
-  button.onclick = createNewRaceEvent;
-}
+async function saveEventTitle(){if(!currentEvent||!isAdmin)return;const title=$("event-name").value.trim();if(!title||title===currentEvent.title)return;const {error}=await sb.from("events").update({title}).eq("id",currentEvent.id);if(error){showNotice("Не удалось сохранить название: "+error.message);$("event-name").value=currentEvent.title;return;}currentEvent.title=title;$("event-title").textContent=title;showNotice("Название сохранено.");}
+$("event-name").addEventListener("change",saveEventTitle);
+$("event-name").addEventListener("blur",saveEventTitle);
+function installNewEventButton(){if($("create-new-event"))return;const button=document.createElement("button");button.id="create-new-event";button.className="btn primary";button.textContent="＋ Новый гоночный вечер";$("admin-primary-actions")?.prepend(button);button.onclick=createNewRaceEvent;}
 
 async function createNewRaceEvent() {
   if (!isAdmin) return;
@@ -1465,6 +1342,7 @@ async function loadGT3Records() {
   gt3Races = racesResponse.data || [];
   gt3Laps = lapsResponse.data || [];
   gt3Events = eventsResponse.data || [];
+  lastRecordsLoadedAt = Date.now();
 
   renderGT3Records();
 
@@ -2094,98 +1972,14 @@ async function loadVoteStats() {
     return;
   }
 
-  // Яркая контрастная палитра круговых диаграмм.
-  const colors = [
-    "#00E5FF",
-    "#FF3D71",
-    "#FFD600",
-    "#7C4DFF",
-    "#00E676",
-    "#FF9100",
-    "#2979FF",
-    "#F50057",
-    "#C6FF00",
-    "#E040FB"
-  ];
-
-  let chartsHtml = "";
-
-  for (const cat of categoryOrder) {
-    const tally = {};
-
-    votes.forEach(vote => {
-      normalizedVotes(vote.selections, cat).forEach(id => {
-        tally[id] = (tally[id] || 0) + 1;
-      });
-    });
-
-    const entries = Object.entries(tally)
-      .map(([id, count]) => ({
-        id,
-        count,
-        label: optionLabel(id)
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    const total = entries.reduce((sum, item) => sum + item.count, 0);
-
-    let angle = 0;
-
-    const gradientParts = entries.map((item, index) => {
-      const start = angle;
-      angle += total ? item.count / total * 360 : 0;
-
-      return `${colors[index % colors.length]} ${start}deg ${angle}deg`;
-    });
-
-    const gradient = total
-      ? `conic-gradient(${gradientParts.join(", ")})`
-      : "#273746";
-
-    const legend = entries.map((item, index) => {
-      const percent = total
-        ? (item.count / total * 100).toFixed(1).replace(".", ",")
-        : "0";
-
-      return `
-        <div class="stats-pie-legend-item">
-          <span
-            class="stats-pie-dot"
-            style="background:${colors[index % colors.length]}"
-          ></span>
-
-          <div class="stats-pie-name">
-            ${escapeHtml(item.label)}
-            <span class="stats-pie-value">
-              ${item.count} голосов · ${percent}%
-            </span>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    chartsHtml += `
-      <div class="stats-pie-card">
-        <h3>${labels[cat]}</h3>
-
-        <div class="stats-pie-layout">
-          <div
-            class="stats-pie"
-            style="background:${gradient}"
-            role="img"
-            aria-label="Распределение голосов: ${escapeHtml(labels[cat])}"
-          ></div>
-
-          <div class="stats-pie-legend">
-            ${legend || '<div class="muted">Нет голосов</div>'}
-          </div>
-        </div>
-
-        <div class="hint" style="margin-top:12px">
-          Всего: ${total} голосов
-        </div>
-      </div>
-    `;
+  const colors=["#b9f36b","#65b8ff","#d5a6ff","#ffbd69","#64d6c5","#ff8e9e"];
+  let chartsHtml="";
+  for(const cat of categoryOrder){
+    const tally={};votes.forEach(vote=>normalizedVotes(vote.selections,cat).forEach(id=>{tally[id]=(tally[id]||0)+1;}));
+    const entries=Object.entries(tally).map(([id,count])=>({id,count,label:optionLabel(id)})).sort((a,b)=>b.count-a.count);
+    const total=entries.reduce((sum,item)=>sum+item.count,0);
+    const rows=entries.map((item,index)=>{const pct=total?item.count/total*100:0;return `<div class="stats-bar-row"><span class="stats-bar-name">${escapeHtml(item.label)}</span><span class="stats-bar-value">${item.count} · ${pct.toFixed(0)}%</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%;background:${colors[index%colors.length]}"></div></div></div>`;}).join("");
+    chartsHtml+=`<div class="stats-bar-card"><h3><span class="category-icon">${categoryIcons[cat]||"•"}</span>${labels[cat]}</h3>${rows||'<div class="muted">Нет голосов</div>'}<div class="hint" style="margin-top:8px">Всего: ${total} голосов</div></div>`;
   }
 
   const votersHtml = votes.map(vote => {
@@ -2219,7 +2013,7 @@ async function loadVoteStats() {
       Каждый участник даёт до двух голосов в каждой категории.
     </div>
 
-    <div class="stats-pie-grid">
+    <div class="stats-bar-grid">
       ${chartsHtml}
     </div>
 
