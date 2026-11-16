@@ -429,7 +429,13 @@ function tab(name) {
 
   ["vote", "result", "records", "admin", "gt3-admin"].forEach(id => {
     const section = $(id);
-    if (section) section.classList.toggle("hidden", id !== name);
+    if (!section) return;
+    section.classList.toggle("hidden", id !== name);
+    if (id === name) {
+      section.classList.remove("section-enter");
+      void section.offsetWidth;
+      section.classList.add("section-enter");
+    }
   });
 
   if (name === "result" && currentEvent) {
@@ -524,6 +530,7 @@ async function init() {
 }
 
 function renderVoteCategory(cat, extraClass = "") {
+  const winners = resultValues(currentEvent?.result?.[cat]).map(String);
   return `
     <div class="panel ${extraClass}">
       <h2>${labels[cat]}</h2>
@@ -531,7 +538,7 @@ function renderVoteCategory(cat, extraClass = "") {
         ${categories
           .filter(option => option.category === cat && option.active)
           .map(option => `
-            <label class="option">
+            <label class="option ${winners.includes(String(option.id)) ? "winning-option" : ""}">
               <input type="checkbox" name="${cat}" value="${option.id}">
               <span>${escapeHtml(option.label)}</span>
             </label>
@@ -1169,6 +1176,84 @@ $("toggle-event").onclick = async () => {
   }
 };
 
+async function playDrawReveal(result) {
+  const overlay = document.createElement("div");
+  overlay.className = "draw-overlay";
+  overlay.innerHTML = `
+    <div class="draw-stage">
+      <div class="draw-kicker">AMS2 / RACE NIGHT</div>
+      <div class="draw-heading">Жеребьёвка</div>
+      <div class="draw-subtitle">Формируем конфигурации двух гонок…</div>
+      <div class="draw-races">
+        ${[0,1].map(index => `
+          <div class="draw-race">
+            <div class="draw-race-title">RACE 0${index + 1}</div>
+            ${categoryOrder.map(cat => `
+              <div class="draw-row">
+                <div class="draw-label">${labels[cat]}</div>
+                <div class="draw-value" data-draw-value="${index}-${cat}">ОЖИДАНИЕ</div>
+              </div>
+            `).join("")}
+          </div>
+        `).join("")}
+      </div>
+      <div class="draw-footer">
+        <div class="draw-progress"><span></span></div>
+        <button class="draw-skip" type="button">Пропустить</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    overlay.remove();
+  };
+  overlay.querySelector(".draw-skip").onclick = finish;
+
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fields = categoryOrder.length * 2;
+  let completed = 0;
+
+  for (let race = 0; race < 2 && !finished; race++) {
+    for (const cat of categoryOrder) {
+      if (finished) break;
+      const node = overlay.querySelector(`[data-draw-value="${race}-${cat}"]`);
+      const chosen = resultValues(result?.[cat]);
+      const finalId = chosen[race] ?? chosen[0];
+      const finalLabel = finalId ? optionLabel(finalId) : "—";
+      const pool = categories.filter(item => item.category === cat && item.active);
+      node.classList.add("is-spinning");
+
+      if (!reduceMotion && pool.length) {
+        for (let tick = 0; tick < 6; tick++) {
+          if (finished) break;
+          node.textContent = pool[Math.floor(Math.random() * pool.length)].label;
+          await delay(55 + tick * 7);
+        }
+      }
+
+      if (finished) break;
+      node.textContent = finalLabel;
+      node.classList.remove("is-spinning");
+      node.classList.add("is-final");
+      completed++;
+      overlay.querySelector(".draw-progress span").style.width =
+        (completed / fields * 100) + "%";
+      await delay(reduceMotion ? 30 : 145);
+    }
+  }
+
+  if (!finished) {
+    overlay.querySelector(".draw-subtitle").textContent = "Конфигурации готовы. Удачной гонки!";
+    await delay(reduceMotion ? 100 : 850);
+    finish();
+  }
+}
+
 $("draw").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
 
@@ -1176,17 +1261,27 @@ $("draw").onclick = async () => {
     return;
   }
 
+  const button = $("draw");
+  button.disabled = true;
+  button.textContent = "Проводим жеребьёвку…";
+
   const { error } = await sb.rpc("draw_weighted", {
     p_event_id: currentEvent.id
   });
 
   if (error) {
+    button.disabled = false;
+    button.textContent = "Провести weighted-жеребьёвку";
     alert(error.message);
     return;
   }
 
   await init();
+  await playDrawReveal(currentEvent?.result);
   tab("result");
+
+  button.disabled = false;
+  button.textContent = "Провести weighted-жеребьёвку";
 };
 
 $("reset-votes").onclick = async () => {
