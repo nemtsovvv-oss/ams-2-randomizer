@@ -72,6 +72,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 .admin-race-form h3{margin:0 0 4px;font-size:15px}
 .record-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 @media(max-width:760px){
+  input,select,textarea{font-size:16px}
   .cols{grid-template-columns:1fr}
   .wrap{padding-top:18px}
   .stat-row{grid-template-columns:minmax(80px,1fr) 1.3fr auto;gap:7px}
@@ -148,6 +149,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 .draw-picked.is-revealed{color:var(--accent);animation:raceReveal .38s cubic-bezier(.16,.8,.25,1) both}
 @media(prefers-reduced-motion:reduce){.draw-drum-list{transition:none!important}.draw-picked.is-revealed{animation:none}}
 @media(max-width:600px){.draw-races{grid-template-columns:1fr}.draw-stage{padding:16px}.draw-race{padding:12px}}
+@media(hover:none){.panel:hover,.stats-pie-card:hover,.gt3-history-card:hover,.gt3-race-card:hover,.record-highlight:hover,.voter-card:hover,.item:hover,.option:hover,.btn:hover,.tab:hover{transform:none!important;filter:none!important;box-shadow:none!important}}
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
   .winning-option:after{content:"ВЫБРАНО"}
@@ -194,7 +196,7 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
  <div class="tabs">
   <button class="tab active" data-tab="vote">Голосование</button>
   <button class="tab" data-tab="result">Результат</button>
-  <button class="tab" data-tab="records">Рекорды GT3</button>
+  <button class="tab" data-tab="records">Рекорды</button>
   <button class="tab" data-tab="admin">Администрирование</button>
   <button class="tab hidden" data-tab="gt3-admin">Управление хот-лапами</button>
  </div>
@@ -238,9 +240,9 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 
  <section id="records" class="hidden">
   <div class="panel">
-   <div class="eyebrow">AMS2 / GT3</div>
+   <div class="eyebrow">AMS2 / RECORDS</div>
    <h2 style="font-size:28px;margin-top:7px">Таблица рекордов</h2>
-   <div class="hint">Лучшие хот-лапы GT3 на каждой трассе и полная история кругов.</div>
+   <div class="hint">Лучшие круги по трассам и история результатов. Выбери класс автомобиля.</div>
    <div id="gt3-records-content">
     <div class="record-empty">Загружаем рекорды…</div>
    </div>
