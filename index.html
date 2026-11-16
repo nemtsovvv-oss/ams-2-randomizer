@@ -135,12 +135,15 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
 .draw-skip{background:transparent;border:1px solid var(--line);border-radius:9px;color:var(--text);padding:8px 12px;font:inherit;font-size:12px;font-weight:700}
 @keyframes overlayIn{from{opacity:0}to{opacity:1}}
 .draw-drum-stage{text-align:center;width:min(620px,100%)}
-.draw-drum-window{position:relative;height:162px;max-width:460px;margin:22px auto 20px;overflow:hidden;border-top:1px solid #40596a;border-bottom:1px solid #40596a;background:linear-gradient(90deg,#0a141d,#14232e 18%,#14232e 82%,#0a141d);mask-image:linear-gradient(to bottom,transparent 0%,#000 22%,#000 78%,transparent 100%)}
+.draw-drum-window{position:relative;height:162px;max-width:460px;margin:22px auto 20px;overflow:hidden;border-top:1px solid #40596a;border-bottom:1px solid #40596a;background:#12212c}
+.draw-drum-window:before,.draw-drum-window:after{content:"";position:absolute;left:0;right:0;height:42px;z-index:2;pointer-events:none}
+.draw-drum-window:before{top:0;background:linear-gradient(to bottom,#12212c,transparent)}
+.draw-drum-window:after{bottom:0;background:linear-gradient(to top,#12212c,transparent)}
 .draw-drum-window.is-hidden{display:none}
-.draw-drum-list{will-change:transform;transform:translateY(-54px)}
-.draw-drum-item{height:54px;display:flex;align-items:center;justify-content:center;padding:0 18px;color:#8093a1;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.48;transform:scale(.94);transition:color .25s,opacity .25s,transform .25s}
-.draw-drum-item.is-winner{color:var(--text)}
-.draw-drum-selection{position:absolute;left:0;right:0;top:54px;height:54px;border-top:1px solid #b9f36b80;border-bottom:1px solid #b9f36b80;background:#b9f36b0b;pointer-events:none}
+.draw-drum-list{will-change:transform;transform:translate3d(0,-54px,0)}
+.draw-drum-item{height:54px;display:flex;align-items:center;justify-content:center;padding:0 18px;color:#9aabb8;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.68}
+.draw-drum-item.is-winner{color:#f4f7fa;font-size:17px;font-weight:850;opacity:1}
+.draw-drum-selection{position:absolute;left:0;right:0;top:54px;height:54px;z-index:3;border-top:1px solid #b9f36b99;border-bottom:1px solid #b9f36b99;background:#b9f36b0d;pointer-events:none}
 .draw-picked{min-height:32px;font-size:clamp(18px,4vw,25px);font-weight:950;color:var(--text);overflow-wrap:anywhere}
 .draw-picked.is-revealed{color:var(--accent);animation:raceReveal .38s cubic-bezier(.16,.8,.25,1) both}
 @media(prefers-reduced-motion:reduce){.draw-drum-list{transition:none!important}.draw-picked.is-revealed{animation:none}}
