@@ -388,14 +388,14 @@ function installExtraStyles() {
     .category-icon{display:inline-grid;place-items:center;width:24px;height:24px;margin-right:7px;border-radius:7px;background:#b9f36b12;font-size:15px;vertical-align:-3px}
     .option-icon{display:inline-grid;place-items:center;flex:0 0 20px;width:20px;font-size:14px}
     .admin-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin:10px 0}
-    .admin-add-row input{min-width:0}.admin-options{gap:6px;margin-top:8px}
+    .admin-add-row input{min-width:0}.admin-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
     .admin-options .admin-option{margin:0;padding:8px;min-width:0}
     .admin-option-label{min-width:0;overflow-wrap:anywhere;font-size:12px}
     .admin-option-label small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
     .admin-delete{padding:3px 8px;min-width:30px;font-size:16px;line-height:1}
     #admin-categories{grid-template-columns:repeat(2,minmax(0,1fr))}
     @media(hover:none){.option,.tab,.btn{transition:none!important}.option:hover,.tab:hover,.btn:hover{transform:none!important;filter:none!important}}
-    @media(max-width:600px){#admin-categories{grid-template-columns:1fr}}
+    @media(max-width:600px){#admin-categories{grid-template-columns:1fr}.admin-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.admin-options .admin-option{padding:6px;gap:6px}.admin-option-label{font-size:11px}.admin-delete{min-width:26px;padding:2px 6px}}
     @media(max-width:600px){
       .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
       .gt3-lap-item{grid-template-columns:1fr}
@@ -579,7 +579,6 @@ function renderVoteCategory(cat, extraClass = "") {
           .map(option => `
             <label class="option ${winners.includes(String(option.id)) ? "winning-option" : ""}">
               <input type="checkbox" name="${cat}" value="${option.id}">
-              <span class="option-icon" aria-hidden="true">${icon}</span>
               <span>${escapeHtml(option.label)}</span>
             </label>
           `).join("") ||
@@ -831,7 +830,7 @@ function renderAdminOptions() {
     return `<div class="panel admin-category-panel"><h2><span class="category-icon">${icon}</span>${labels[cat]}</h2>
       <div class="admin-add-row"><input id="new-${cat}" maxlength="80" placeholder="Новый вариант"><button class="btn primary" data-add="${cat}">Добавить</button></div>
       <div class="options admin-options">${categories.filter(option=>option.category===cat).map(option=>`
-        <div class="option admin-option ${option.active?"":"disabled-option"}"><input type="checkbox" data-toggle-option="${option.id}" ${option.active?"checked":""} title="Активность варианта"><span class="option-icon">${icon}</span><span class="admin-option-label">${escapeHtml(option.label)}<small>${option.active?"Активен":"Отключён"}</small></span><button type="button" class="btn danger admin-delete" data-delete-option="${option.id}">×</button></div>
+        <div class="option admin-option ${option.active?"":"disabled-option"}"><input type="checkbox" data-toggle-option="${option.id}" ${option.active?"checked":""} title="Активность варианта"><span class="admin-option-label">${escapeHtml(option.label)}<small>${option.active?"Активен":"Отключён"}</small></span><button type="button" class="btn danger admin-delete" data-delete-option="${option.id}">×</button></div>
       `).join("")||'<div class="muted">Вариантов пока нет</div>'}</div></div>`;
   }).join("");
 
@@ -1947,7 +1946,64 @@ async function loadResult() {
         `;
       }).join("")}
     </div>
+    <div class="actions" style="margin-top:16px">
+      <button type="button" class="btn primary" id="copy-race-results">Скопировать результаты</button>
+    </div>
   `;
+
+  $("copy-race-results")?.addEventListener("click", copyRaceResults);
+}
+
+function buildRaceResultsText(result) {
+  const fields = [
+    ["track", "Трасса"],
+    ["car_class", "Класс"],
+    ["weather", "Погода"],
+    ["time_of_day", "Время суток"],
+    ["damage", "Повреждения"]
+  ];
+
+  const lines = [currentEvent?.title || "Гоночный вечер AMS2", ""];
+  for (let index = 0; index < 2; index++) {
+    lines.push(`ГОНКА ${index + 1}`);
+    for (const [key, label] of fields) {
+      const values = resultValues(result?.[key]);
+      const id = values[index] ?? values[0] ?? "—";
+      lines.push(`${label}: ${optionLabel(id)}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n").trim();
+}
+
+async function copyRaceResults() {
+  if (!currentEvent?.result) return;
+  const text = buildRaceResultsText(currentEvent.result);
+  const button = $("copy-race-results");
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const field = document.createElement("textarea");
+      field.value = text;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand("copy");
+      field.remove();
+      if (!copied) throw new Error("Буфер обмена недоступен");
+    }
+    if (button) button.textContent = "Скопировано";
+    showNotice("Результаты скопированы");
+    setTimeout(() => {
+      if (button?.isConnected) button.textContent = "Скопировать результаты";
+    }, 1800);
+  } catch (error) {
+    console.error("Не удалось скопировать результаты", error);
+    showNotice("Не удалось скопировать. Проверь разрешение браузера на буфер обмена.");
+  }
 }
 
 // Статистика голосования с круговыми диаграммами.
