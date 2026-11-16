@@ -48,6 +48,110 @@ function escapeHtml(s) {
   }[c]));
 }
 
+
+function ensureToastStack() {
+  let stack = document.getElementById("ui-toast-stack");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.id = "ui-toast-stack";
+    stack.className = "ui-toast-stack";
+    stack.setAttribute("aria-live", "polite");
+    stack.setAttribute("aria-atomic", "false");
+    document.body.appendChild(stack);
+  }
+  return stack;
+}
+
+function showNotice(message) {
+  const text = String(message ?? "");
+  const lower = text.toLowerCase();
+  const isError = /не удалось|ошиб|неверн|нельзя|нельзя|проверь|не заполн|уже проголосовали|сначала проведи/.test(lower);
+  const isWarning = /удал|закрыть|нельзя|повторно/.test(lower);
+  const type = isError ? "error" : (isWarning ? "warning" : "success");
+  const title = isError ? "Не получилось" : (isWarning ? "Обрати внимание" : "Готово");
+  const icon = isError ? "!" : (isWarning ? "!" : "✓");
+  const toast = document.createElement("div");
+  toast.className = "ui-toast is-" + type;
+  const iconEl = document.createElement("div");
+  iconEl.className = "ui-toast-icon";
+  iconEl.textContent = icon;
+  const body = document.createElement("div");
+  const titleEl = document.createElement("div");
+  titleEl.className = "ui-toast-title";
+  titleEl.textContent = title;
+  const messageEl = document.createElement("div");
+  messageEl.className = "ui-toast-message";
+  messageEl.textContent = text;
+  body.append(titleEl, messageEl);
+  const close = document.createElement("button");
+  close.className = "ui-toast-close";
+  close.type = "button";
+  close.setAttribute("aria-label", "Закрыть уведомление");
+  close.textContent = "×";
+  const remove = () => {
+    if (!toast.isConnected) return;
+    toast.classList.add("is-leaving");
+    setTimeout(() => toast.remove(), 210);
+  };
+  close.addEventListener("click", remove);
+  toast.append(iconEl, body, close);
+  ensureToastStack().appendChild(toast);
+  const duration = type === "error" ? 5600 : 3900;
+  const timer = setTimeout(remove, duration);
+  close.addEventListener("click", () => clearTimeout(timer), { once: true });
+}
+
+function showConfirm(message, options = {}) {
+  return new Promise(resolve => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "ui-dialog-backdrop";
+    const dialog = document.createElement("section");
+    dialog.className = "ui-dialog";
+    dialog.setAttribute("role", "alertdialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-label", options.title || "Подтверждение");
+    const icon = document.createElement("div");
+    icon.className = "ui-dialog-icon";
+    icon.textContent = options.danger ? "!" : "?";
+    const title = document.createElement("h2");
+    title.className = "ui-dialog-title";
+    title.textContent = options.title || (options.danger ? "Подтвердить действие?" : "Нужно подтверждение");
+    const text = document.createElement("div");
+    text.className = "ui-dialog-message";
+    text.textContent = String(message ?? "");
+    const actions = document.createElement("div");
+    actions.className = "ui-dialog-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ui-dialog-btn";
+    cancel.textContent = options.cancelText || "Отмена";
+    const accept = document.createElement("button");
+    accept.type = "button";
+    accept.className = "ui-dialog-btn " + (options.danger ? "danger" : "primary");
+    accept.textContent = options.confirmText || (options.danger ? "Удалить" : "Продолжить");
+    actions.append(cancel, accept);
+    dialog.append(icon, title, text, actions);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+    const finish = value => {
+      document.removeEventListener("keydown", onKey);
+      backdrop.remove();
+      resolve(value);
+    };
+    const onKey = event => {
+      if (event.key === "Escape") finish(false);
+      if (event.key === "Enter") finish(true);
+    };
+    cancel.addEventListener("click", () => finish(false));
+    accept.addEventListener("click", () => finish(true));
+    backdrop.addEventListener("click", event => {
+      if (event.target === backdrop) finish(false);
+    });
+    document.addEventListener("keydown", onKey);
+    accept.focus();
+  });
+}
+
 function optionLabel(id) {
   const option = categories.find(o => o.id === id);
   return option ? option.label : String(id);
@@ -587,7 +691,7 @@ async function loadOptions() {
 
         if (checked.length > 2) {
           input.checked = false;
-          alert("Можно выбрать не больше двух вариантов.");
+          showNotice("Можно выбрать не больше двух вариантов.");
         }
       });
     });
@@ -617,7 +721,7 @@ $("submit-vote").onclick = async () => {
   const nickname = $("nickname").value.trim();
 
   if (!nickname) {
-    alert("Введи ник");
+    showNotice("Введи ник");
     return;
   }
 
@@ -634,7 +738,7 @@ $("submit-vote").onclick = async () => {
   }
 
   if (!categoryOrder.some(cat => selections[cat].length > 0)) {
-    alert("Выбери хотя бы один вариант.");
+    showNotice("Выбери хотя бы один вариант.");
     return;
   }
 
@@ -649,13 +753,13 @@ $("submit-vote").onclick = async () => {
 
   if (checkError) {
     button.disabled = !isOpen;
-    alert("Не удалось проверить голос: " + checkError.message);
+    showNotice("Не удалось проверить голос: " + checkError.message);
     return;
   }
 
   if (existing?.length) {
     button.disabled = !isOpen;
-    alert("Вы уже проголосовали. Повторно голосовать нельзя.");
+    showNotice("Вы уже проголосовали. Повторно голосовать нельзя.");
     return;
   }
 
@@ -669,9 +773,9 @@ $("submit-vote").onclick = async () => {
     button.disabled = !isOpen;
 
     if (error.code === "23505") {
-      alert("Вы уже проголосовали. Повторно голосовать нельзя.");
+      showNotice("Вы уже проголосовали. Повторно голосовать нельзя.");
     } else {
-      alert("Не удалось сохранить голос: " + error.message);
+      showNotice("Не удалось сохранить голос: " + error.message);
     }
 
     return;
@@ -688,7 +792,7 @@ $("submit-vote").onclick = async () => {
 
   tab("result");
 
-  alert("Голос сохранён.");
+  showNotice("Голос сохранён.");
 };
 
 $("login").onclick = async () => {
@@ -844,7 +948,7 @@ async function addOption(cat) {
     .insert({ category: cat, label, active: true });
 
   if (error) {
-    alert(error.message);
+    showNotice(error.message);
     return;
   }
 
@@ -860,7 +964,7 @@ async function setOptionActive(id, active) {
     .eq("id", id);
 
   if (error) {
-    alert("Не удалось изменить активность: " + error.message);
+    showNotice("Не удалось изменить активность: " + error.message);
     return;
   }
 
@@ -873,7 +977,7 @@ async function deleteOption(id) {
   const option = categories.find(item => item.id === id);
   if (!option) return;
 
-  if (!confirm(
+  if (!await showConfirm(
     `Полностью удалить вариант «${option.label}» из базы?\n\n` +
     "Это действие нельзя отменить. В старых результатах название может перестать отображаться."
   )) return;
@@ -881,12 +985,12 @@ async function deleteOption(id) {
   const { error } = await sb.from("options").delete().eq("id", id);
 
   if (error) {
-    alert("Не удалось удалить вариант: " + error.message);
+    showNotice("Не удалось удалить вариант: " + error.message);
     return;
   }
 
   await refreshAdminData();
-  alert("Вариант полностью удалён.");
+  showNotice("Вариант полностью удалён.");
 }
 
 async function refreshAdminData() {
@@ -945,7 +1049,7 @@ function ensureAdminResultsPanel() {
 async function clearCurrentEventResults() {
   if (!currentEvent || !isAdmin) return;
 
-  if (!confirm(
+  if (!await showConfirm(
     "Удалить результаты жеребьёвки текущего вечера?\n\n" +
     "Голоса участников, инфографика и сохранённая история GT3 останутся."
   )) return;
@@ -960,7 +1064,7 @@ async function clearCurrentEventResults() {
 
   if (error) {
     if (button) button.disabled = false;
-    alert("Не удалось удалить результаты: " + error.message);
+    showNotice("Не удалось удалить результаты: " + error.message);
     return;
   }
 
@@ -971,7 +1075,7 @@ async function clearCurrentEventResults() {
   applyEventView();
 
   if (button) button.disabled = false;
-  alert("Результаты жеребьёвки удалены. История GT3 сохранена.");
+  showNotice("Результаты жеребьёвки удалены. История GT3 сохранена.");
 }
 
 async function loadAdminVoters() {
@@ -1037,7 +1141,7 @@ async function loadAdminVoters() {
 }
 
 async function deleteVote(nickname) {
-  if (!isAdmin || !confirm(`Удалить голос участника «${nickname}»?`)) return;
+  if (!isAdmin || !await showConfirm(`Удалить голос участника «${nickname}»?`)) return;
 
   const { error } = await sb
     .from("votes")
@@ -1046,7 +1150,7 @@ async function deleteVote(nickname) {
     .eq("nickname", nickname);
 
   if (error) {
-    alert("Не удалось удалить голос: " + error.message);
+    showNotice("Не удалось удалить голос: " + error.message);
     return;
   }
 
@@ -1054,7 +1158,7 @@ async function deleteVote(nickname) {
   await loadVotesCount();
   await loadVoteStats();
 
-  alert("Голос удалён. Этот ник сможет проголосовать заново.");
+  showNotice("Голос удалён. Этот ник сможет проголосовать заново.");
 }
 
 $("save-event").onclick = async () => {
@@ -1062,7 +1166,7 @@ $("save-event").onclick = async () => {
 
   const title = $("event-name").value.trim();
   if (!title) {
-    alert("Введи название вечера.");
+    showNotice("Введи название вечера.");
     return;
   }
 
@@ -1072,9 +1176,9 @@ $("save-event").onclick = async () => {
     .eq("id", currentEvent.id);
 
   if (error) {
-    alert("Не удалось изменить название: " + error.message);
+    showNotice("Не удалось изменить название: " + error.message);
   } else {
-    alert("Название вечера изменено.");
+    showNotice("Название вечера изменено.");
     await init();
   }
 };
@@ -1098,11 +1202,11 @@ async function createNewRaceEvent() {
   const title = $("event-name").value.trim();
 
   if (!title) {
-    alert("Введи название нового вечера.");
+    showNotice("Введи название нового вечера.");
     return;
   }
 
-  if (!confirm(
+  if (!await showConfirm(
     `Создать новый гоночный вечер «${title}»?\n\n` +
     "Предыдущий вечер будет сохранён в истории. " +
     "Его гонки и хот-лапы останутся без изменений."
@@ -1119,7 +1223,7 @@ async function createNewRaceEvent() {
 
     if (archiveError) {
       button.disabled = false;
-      alert("Не удалось архивировать предыдущий вечер: " + archiveError.message);
+      showNotice("Не удалось архивировать предыдущий вечер: " + archiveError.message);
       return;
     }
   }
@@ -1148,7 +1252,7 @@ async function createNewRaceEvent() {
     }
 
     button.disabled = false;
-    alert("Не удалось создать новый вечер: " + createError.message);
+    showNotice("Не удалось создать новый вечер: " + createError.message);
     return;
   }
 
@@ -1157,7 +1261,7 @@ async function createNewRaceEvent() {
 
   await init();
 
-  alert("Новый гоночный вечер создан. Старые результаты сохранены.");
+  showNotice("Новый гоночный вечер создан. Старые результаты сохранены.");
   button.disabled = false;
 }
 
@@ -1170,7 +1274,7 @@ $("toggle-event").onclick = async () => {
     .eq("id", currentEvent.id);
 
   if (error) {
-    alert(error.message);
+    showNotice(error.message);
   } else {
     await init();
   }
@@ -1285,7 +1389,7 @@ async function playDrawReveal(result) {
 $("draw").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
 
-  if (!confirm("Закрыть голосование и провести жеребьёвку для двух гонок?")) {
+  if (!await showConfirm("Закрыть голосование и провести жеребьёвку для двух гонок?")) {
     return;
   }
 
@@ -1300,7 +1404,7 @@ $("draw").onclick = async () => {
   if (error) {
     button.disabled = false;
     button.textContent = "Провести weighted-жеребьёвку";
-    alert(error.message);
+    showNotice(error.message);
     return;
   }
 
@@ -1314,7 +1418,7 @@ $("draw").onclick = async () => {
 
 $("reset-votes").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
-  if (!confirm("Удалить все голоса текущего вечера?")) return;
+  if (!await showConfirm("Удалить все голоса текущего вечера?")) return;
 
   const { error } = await sb
     .from("votes")
@@ -1322,12 +1426,12 @@ $("reset-votes").onclick = async () => {
     .eq("event_id", currentEvent.id);
 
   if (error) {
-    alert(error.message);
+    showNotice(error.message);
   } else {
     await loadVotesCount();
     await loadVoteStats();
     await loadAdminVoters();
-    alert("Голоса удалены");
+    showNotice("Голоса удалены");
   }
 };
 
@@ -1593,7 +1697,7 @@ async function addGT3Lap(raceNumber) {
 
   const result = currentEvent.result;
   if (!result) {
-    alert("Сначала проведи жеребьёвку.");
+    showNotice("Сначала проведи жеребьёвку.");
     return;
   }
 
@@ -1602,7 +1706,7 @@ async function addGT3Lap(raceNumber) {
   const classId = classes[raceNumber - 1] ?? classes[0];
 
   if (!isGT3Class(classId)) {
-    alert("Эта гонка не относится к GT3.");
+    showNotice("Эта гонка не относится к GT3.");
     return;
   }
 
@@ -1612,13 +1716,13 @@ async function addGT3Lap(raceNumber) {
   const car = $(`new-lap-car-${raceNumber}`).value.trim();
 
   if (!driver || !timeText) {
-    alert("Заполни ник пилота и время круга.");
+    showNotice("Заполни ник пилота и время круга.");
     return;
   }
 
   const lapMs = parseLapTime(timeText);
   if (!lapMs) {
-    alert("Неверный формат времени. Используй формат 1:42.381");
+    showNotice("Неверный формат времени. Используй формат 1:42.381");
     return;
   }
 
@@ -1639,7 +1743,7 @@ async function addGT3Lap(raceNumber) {
 
   if (raceError) {
     if (button) button.disabled = false;
-    alert("Не удалось сохранить гонку GT3: " + raceError.message);
+    showNotice("Не удалось сохранить гонку GT3: " + raceError.message);
     return;
   }
 
@@ -1652,12 +1756,12 @@ async function addGT3Lap(raceNumber) {
 
   if (error) {
     if (button) button.disabled = false;
-    alert("Не удалось добавить хот-лап: " + error.message);
+    showNotice("Не удалось добавить хот-лап: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  alert("Хот-лап добавлен в историю.");
+  showNotice("Хот-лап добавлен в историю.");
 }
 
 function focusGT3AdminLap(lapId) {
@@ -1680,7 +1784,7 @@ async function deleteGT3Lap(lapId) {
   const lap = gt3Laps.find(item => item.id === lapId);
   if (!lap) return;
 
-  if (!confirm(
+  if (!await showConfirm(
     `Удалить хот-лап ${lap.driver_name} — ${formatLapTime(lap.lap_ms)}?\n\nЭто действие нельзя отменить.`
   )) return;
 
@@ -1690,12 +1794,12 @@ async function deleteGT3Lap(lapId) {
     .eq("id", lapId);
 
   if (error) {
-    alert("Не удалось удалить хот-лап: " + error.message);
+    showNotice("Не удалось удалить хот-лап: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  alert("Хот-лап удалён. Рекорды пересчитаны.");
+  showNotice("Хот-лап удалён. Рекорды пересчитаны.");
 }
 
 function renderGT3AdminHistory() {
@@ -1813,7 +1917,7 @@ async function updateGT3RaceHistory(raceId) {
 
   const trackName = $(`history-track-${raceId}`).value.trim();
   if (!trackName) {
-    alert("Укажи название трассы.");
+    showNotice("Укажи название трассы.");
     return;
   }
 
@@ -1823,12 +1927,12 @@ async function updateGT3RaceHistory(raceId) {
     .eq("id", raceId);
 
   if (error) {
-    alert("Не удалось обновить трассу: " + error.message);
+    showNotice("Не удалось обновить трассу: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  alert("Трасса обновлена. Рекорды пересчитаны.");
+  showNotice("Трасса обновлена. Рекорды пересчитаны.");
 }
 
 async function updateGT3LapHistory(lapId) {
@@ -1840,7 +1944,7 @@ async function updateGT3LapHistory(lapId) {
   const lapMs = parseLapTime(timeText);
 
   if (!driver || !lapMs) {
-    alert("Проверь имя пилота и формат времени.");
+    showNotice("Проверь имя пилота и формат времени.");
     return;
   }
 
@@ -1854,12 +1958,12 @@ async function updateGT3LapHistory(lapId) {
     .eq("id", lapId);
 
   if (error) {
-    alert("Не удалось обновить круг: " + error.message);
+    showNotice("Не удалось обновить круг: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  alert("Хот-лап обновлён. Рекорды пересчитаны.");
+  showNotice("Хот-лап обновлён. Рекорды пересчитаны.");
 }
 
 async function addHistoricalGT3Lap(raceId) {
@@ -1871,7 +1975,7 @@ async function addHistoricalGT3Lap(raceId) {
   const lapMs = parseLapTime(timeText);
 
   if (!driver || !lapMs) {
-    alert("Заполни ник пилота и корректное время круга.");
+    showNotice("Заполни ник пилота и корректное время круга.");
     return;
   }
 
@@ -1883,12 +1987,12 @@ async function addHistoricalGT3Lap(raceId) {
   });
 
   if (error) {
-    alert("Не удалось добавить круг: " + error.message);
+    showNotice("Не удалось добавить круг: " + error.message);
     return;
   }
 
   await loadGT3Records();
-  alert("Круг добавлен в историю.");
+  showNotice("Круг добавлен в историю.");
 }
 
 async function loadResult() {
@@ -2187,22 +2291,22 @@ async function deleteArchivedEvent(eventId) {
     .maybeSingle();
 
   if (event.error) {
-    alert("Не удалось проверить событие: " + event.error.message);
+    showNotice("Не удалось проверить событие: " + event.error.message);
     return;
   }
 
   if (!event.data) {
-    alert("Это событие уже удалено.");
+    showNotice("Это событие уже удалено.");
     await loadHistory();
     return;
   }
 
   if (event.data.is_current) {
-    alert("Нельзя удалить текущий гоночный вечер.");
+    showNotice("Нельзя удалить текущий гоночный вечер.");
     return;
   }
 
-  if (!confirm(
+  if (!await showConfirm(
     `Полностью удалить вечер «${event.data.title}»?\n\n` +
     "Будут удалены его голоса, записи GT3 и все хот-лапы. " +
     "Это действие нельзя отменить."
@@ -2218,7 +2322,7 @@ async function deleteArchivedEvent(eventId) {
 
   if (votesError) {
     if (button) button.disabled = false;
-    alert("Не удалось удалить голоса: " + votesError.message);
+    showNotice("Не удалось удалить голоса: " + votesError.message);
     return;
   }
 
@@ -2229,7 +2333,7 @@ async function deleteArchivedEvent(eventId) {
 
   if (racesError) {
     if (button) button.disabled = false;
-    alert("Не удалось удалить записи GT3: " + racesError.message);
+    showNotice("Не удалось удалить записи GT3: " + racesError.message);
     return;
   }
 
@@ -2241,7 +2345,7 @@ async function deleteArchivedEvent(eventId) {
 
   if (eventError) {
     if (button) button.disabled = false;
-    alert(
+    showNotice(
       "Голоса и записи GT3 удалены, но само событие удалить не удалось: " +
       eventError.message
     );
@@ -2251,7 +2355,7 @@ async function deleteArchivedEvent(eventId) {
   await loadHistory();
   await loadGT3Records();
 
-  alert("Гоночный вечер и все связанные с ним данные удалены.");
+  showNotice("Гоночный вечер и все связанные с ним данные удалены.");
 }
 
 if (sb) {
