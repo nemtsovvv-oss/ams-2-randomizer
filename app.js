@@ -68,7 +68,9 @@ function showNotice(message) {
   const isError = /не удалось|ошиб|неверн|нельзя|нельзя|проверь|не заполн|уже проголосовали|сначала проведи/.test(lower);
   const isWarning = /удал|закрыть|нельзя|повторно/.test(lower);
   const type = isError ? "error" : (isWarning ? "warning" : "success");
-  const title = isError ? "Не получилось" : (isWarning ? "Обрати внимание" : "Готово");
+  const title = lower.includes("голос сохранён") || lower.includes("голос сохранен")
+    ? "Голос принят"
+    : (isError ? "Не получилось" : (isWarning ? "Обрати внимание" : "Готово"));
   const icon = isError ? "!" : (isWarning ? "!" : "✓");
   const toast = document.createElement("div");
   toast.className = "ui-toast is-" + type;
@@ -110,12 +112,13 @@ function showConfirm(message, options = {}) {
     dialog.setAttribute("role", "alertdialog");
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("aria-label", options.title || "Подтверждение");
+    const isDanger = options.danger ?? /удалить|полностью удалить|удалить все/.test(String(message ?? "").toLowerCase());
     const icon = document.createElement("div");
     icon.className = "ui-dialog-icon";
-    icon.textContent = options.danger ? "!" : "?";
+    icon.textContent = isDanger ? "!" : "?";
     const title = document.createElement("h2");
     title.className = "ui-dialog-title";
-    title.textContent = options.title || (options.danger ? "Подтвердить действие?" : "Нужно подтверждение");
+    title.textContent = options.title || (isDanger ? "Подтвердить удаление?" : "Нужно подтверждение");
     const text = document.createElement("div");
     text.className = "ui-dialog-message";
     text.textContent = String(message ?? "");
@@ -127,8 +130,8 @@ function showConfirm(message, options = {}) {
     cancel.textContent = options.cancelText || "Отмена";
     const accept = document.createElement("button");
     accept.type = "button";
-    accept.className = "ui-dialog-btn " + (options.danger ? "danger" : "primary");
-    accept.textContent = options.confirmText || (options.danger ? "Удалить" : "Продолжить");
+    accept.className = "ui-dialog-btn " + (isDanger ? "danger" : "primary");
+    accept.textContent = options.confirmText || (isDanger ? "Удалить" : "Продолжить");
     actions.append(cancel, accept);
     dialog.append(icon, title, text, actions);
     backdrop.appendChild(dialog);
