@@ -553,6 +553,7 @@ async function init() {
 
   if (!ev) {
     $("connection").textContent = "Создай гоночный вечер в SQL / админке";
+    await loadOptions();
     await loadGT3Records();
 
     if (currentUser) await loadAdmin();
@@ -1585,8 +1586,6 @@ async function addGT3Lap(raceNumber) {
 
   const tracks = resultValues(result.track);
   const classes = resultValues(result.car_class);
-  const classId = classes[raceNumber - 1] ?? classes[0];
-
   const trackName = optionLabel(tracks[raceNumber - 1] ?? tracks[0] ?? "—");
   const driver = $(`new-lap-driver-${raceNumber}`).value.trim();
   const timeText = $(`new-lap-time-${raceNumber}`).value.trim();
