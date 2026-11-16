@@ -151,6 +151,32 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
   .winning-option:after{content:"ВЫБРАНО"}
 }
 
+
+/* Branded dialogs and notifications */
+.ui-toast-stack{position:fixed;z-index:12000;right:22px;bottom:22px;display:grid;gap:10px;width:min(390px,calc(100vw - 28px));pointer-events:none}
+.ui-toast{display:grid;grid-template-columns:38px 1fr 28px;align-items:center;gap:12px;padding:15px 15px 15px 13px;background:linear-gradient(145deg,#1d303d,#101b24);border:1px solid #3b5668;border-radius:15px;box-shadow:0 18px 55px #0009;pointer-events:auto;animation:toastIn .28s cubic-bezier(.2,.8,.2,1) both}
+.ui-toast.is-success{border-color:#658c43}.ui-toast.is-error{border-color:#985454}.ui-toast.is-warning{border-color:#8b7541}
+.ui-toast-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:11px;background:#b9f36b18;color:var(--accent);font-size:18px;font-weight:900}
+.ui-toast.is-error .ui-toast-icon{background:#ff8d8d18;color:#ff8d8d}.ui-toast.is-warning .ui-toast-icon{background:#ffd47718;color:#ffd477}
+.ui-toast-title{font-size:13px;font-weight:850;color:var(--text);margin-bottom:2px}.ui-toast-message{font-size:12px;line-height:1.4;color:#b8c7d1;overflow-wrap:anywhere}
+.ui-toast-close{border:0;background:transparent;color:#8fa2b1;font-size:19px;cursor:pointer;padding:3px}
+.ui-toast.is-leaving{animation:toastOut .2s ease forwards}
+.ui-dialog-backdrop{position:fixed;inset:0;z-index:13000;display:grid;place-items:center;padding:18px;background:#03080dcc;backdrop-filter:blur(10px);animation:overlayIn .2s ease both}
+.ui-dialog{width:min(440px,100%);padding:25px;background:linear-gradient(145deg,#1b2d39,#101a23);border:1px solid #40596a;border-radius:20px;box-shadow:0 25px 90px #000b;animation:dialogIn .28s cubic-bezier(.2,.8,.2,1) both}
+.ui-dialog-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:#b9f36b18;color:var(--accent);font-size:23px;font-weight:900;margin-bottom:16px}
+.ui-dialog-title{font-size:21px;font-weight:900;letter-spacing:-.035em;margin:0 0 8px}
+.ui-dialog-message{font-size:13px;line-height:1.55;color:#b6c5cf;white-space:pre-line;overflow-wrap:anywhere}
+.ui-dialog-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px;flex-wrap:wrap}
+.ui-dialog-btn{min-width:104px;border:1px solid var(--line);border-radius:10px;padding:10px 15px;background:#1b2a36;color:var(--text);font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.ui-dialog-btn.primary{background:var(--accent);border-color:var(--accent);color:#14200c}
+.ui-dialog-btn.danger{background:#7d3434;border-color:#a34e4e;color:white}
+.ui-dialog-btn:focus-visible,.ui-toast-close:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(8px) scale(.98)}}
+@keyframes dialogIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:600px){.ui-toast-stack{left:14px;right:14px;bottom:14px;width:auto}.ui-dialog{padding:21px;border-radius:17px}.ui-dialog-actions{display:grid;grid-template-columns:1fr 1fr}.ui-dialog-btn{width:100%}}
+@media(prefers-reduced-motion:reduce){.ui-toast,.ui-dialog{animation:none}}
+
 </style>
 </head>
 <body>
