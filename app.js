@@ -1364,46 +1364,55 @@ function sortedGT3Races() {
   });
 }
 
+
+function raceClassName(race) {
+  const event = gt3Events.find(item => item.id === race.event_id);
+  const classValues = resultValues(event?.result?.car_class);
+  const classId = classValues[(Number(race.race_number) || 1) - 1] ?? classValues[0];
+  // Legacy records were GT3-only; keep them visible if an old event has no saved result.
+  return classId ? optionLabel(classId) : "GT3";
+}
+
+function normalizeRecordClass(value) {
+  return String(value || "").trim().toLocaleLowerCase("ru-RU");
+}
+
 function renderGT3Records() {
   const container = $("gt3-records-content");
   if (!container) return;
 
+  const matchesClass = race => normalizeRecordClass(raceClassName(race)) === normalizeRecordClass(selectedRecordClass);
+  const classRaces = gt3Races.filter(matchesClass);
   const bestByTrack = new Map();
 
-  gt3Races.forEach(race => {
+  classRaces.forEach(race => {
     const key = String(race.track_name || "").trim().toLowerCase();
-
     getRaceLaps(race.id).forEach(lap => {
       const previous = bestByTrack.get(key);
-
       if (!previous || lap.lap_ms < previous.lap_ms) {
-        bestByTrack.set(key, {
-          ...lap,
-          track_name: race.track_name
-        });
+        bestByTrack.set(key, { ...lap, track_name: race.track_name });
       }
     });
   });
 
-  const bestRecords = [...bestByTrack.values()]
-    .sort((a, b) => a.track_name.localeCompare(b.track_name, "ru"));
-
-  const history = sortedGT3Races();
+  const bestRecords = [...bestByTrack.values()].sort((a, b) => a.track_name.localeCompare(b.track_name, "ru"));
+  const history = sortedGT3Races().filter(matchesClass);
+  const lapCount = classRaces.reduce((sum, race) => sum + getRaceLaps(race.id).length, 0);
 
   container.innerHTML = `
-    <h3 class="record-section-title">Лучшие хот-лапы по трассам</h3>
+    <div class="record-class-tabs" role="group" aria-label="Класс автомобилей">
+      ${recordClasses.map(className => `
+        <button type="button" class="record-class-tab ${className === selectedRecordClass ? "active" : ""}"
+          data-record-class="${escapeHtml(className)}">${escapeHtml(className)}</button>
+      `).join("")}
+    </div>
 
+    <h3 class="record-section-title">Лучшие хот-лапы · ${escapeHtml(selectedRecordClass)}</h3>
     ${bestRecords.length ? `
       <div class="records-table-wrap">
         <table class="records-table">
-          <thead>
-            <tr>
-              <th>Трасса</th>
-              <th>Пилот</th>
-              <th>Автомобиль</th>
-              <th>Время</th>
-            </tr>
-          </thead>
+          <colgroup><col style="width:29%"><col style="width:22%"><col style="width:29%"><col style="width:20%"></colgroup>
+          <thead><tr><th>Трасса</th><th>Пилот</th><th>Авто</th><th>Время</th></tr></thead>
           <tbody>
             ${bestRecords.map(record => `
               <tr>
@@ -1416,55 +1425,47 @@ function renderGT3Records() {
           </tbody>
         </table>
       </div>
-    ` : `
-      <div class="record-empty">Хот-лапы пока не добавлены.</div>
-    `}
+    ` : `<div class="record-empty">Для класса «${escapeHtml(selectedRecordClass)}» хот-лапы пока не добавлены.</div>`}
 
-    <h3 class="record-section-title">История гонок и хот-лапов</h3>
-
+    <h3 class="record-section-title">История · ${escapeHtml(selectedRecordClass)}</h3>
     ${history.length ? `
       <div class="record-history">
         ${history.map(race => {
           const laps = getRaceLaps(race.id);
-
           return `
             <div class="gt3-history-card">
-              <div class="gt3-history-heading">
-                ${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}
-              </div>
-              <div class="gt3-history-sub">
-                ${escapeHtml(getRaceDate(race))} · ${escapeHtml(race.track_name)}
-              </div>
-
+              <div class="gt3-history-heading">${escapeHtml(getRaceTitle(race))} · Гонка ${race.race_number}</div>
+              <div class="gt3-history-sub">${escapeHtml(getRaceDate(race))} · ${escapeHtml(race.track_name)}</div>
               ${laps.length ? `
                 <div class="gt3-lap-list">
                   ${laps.map(lap => `
                     <div class="gt3-lap-item">
                       <div class="gt3-lap-main">
                         <div class="gt3-lap-driver">${escapeHtml(lap.driver_name)}</div>
-                        <div class="gt3-lap-meta">
-                          ${escapeHtml(lap.car_name || "Автомобиль не указан")}
-                        </div>
+                        <div class="gt3-lap-meta">${escapeHtml(lap.car_name || "Автомобиль не указан")}</div>
                       </div>
                       <div class="gt3-lap-time">${formatLapTime(lap.lap_ms)}</div>
                     </div>
                   `).join("")}
                 </div>
-              ` : `
-                <div class="hint" style="margin-top:10px">Хот-лапы не внесены.</div>
-              `}
+              ` : `<div class="hint" style="margin-top:10px">Хот-лапы не внесены.</div>`}
             </div>
           `;
         }).join("")}
       </div>
-    ` : `
-      <div class="record-empty">История GT3 пока пуста.</div>
-    `}
+    ` : `<div class="record-empty">История класса «${escapeHtml(selectedRecordClass)}» пока пуста.</div>`}
 
     <div class="hint" style="margin-top:14px">
-      Учтено гонок GT3: ${gt3Races.length}. Хот-лапов: ${gt3Laps.length}.
+      Учтено гонок: ${classRaces.length}. Хот-лапов: ${lapCount}.
     </div>
   `;
+
+  container.querySelectorAll("[data-record-class]").forEach(button => {
+    button.addEventListener("click", () => {
+      selectedRecordClass = button.dataset.recordClass;
+      renderGT3Records();
+    });
+  });
 }
 
 async function renderGT3EntryForms() {
