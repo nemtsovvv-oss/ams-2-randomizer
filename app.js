@@ -1905,7 +1905,7 @@ async function loadResult() {
 
   $("result-card").innerHTML = `
     <div class="eyebrow">RACE NIGHT / RESULTS</div>
-    <div class="cols" style="margin-top:12px">
+    <div class="result-races">
       ${[0, 1].map(index => {
         const trackName = optionLabel(tracks[index] ?? tracks[0] ?? "—");
         const carClass = optionLabel(classes[index] ?? classes[0] ?? "—");
