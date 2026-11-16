@@ -304,17 +304,15 @@ function installExtraStyles() {
     .gt3-admin-fields .field{min-width:0}
     .gt3-history-lap{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
     .record-history{display:grid;gap:12px;margin-top:12px}
-    .record-class-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:15px 0 8px}
-    .record-class-tab{flex:1 1 auto;min-width:0;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#0d1720;color:var(--text);font:inherit;font-size:12px;font-weight:750;cursor:pointer}
-    .record-class-tab.active{background:var(--accent);border-color:var(--accent);color:#14200c}
+    .record-class-select-wrap{display:grid;gap:6px;max-width:420px;margin:15px 0 8px}
+    .record-class-select-label{font-size:11px;font-weight:750;color:var(--muted)}
+    .record-class-select{width:100%;min-width:0;min-height:44px;padding:10px 38px 10px 12px;border:1px solid var(--line);border-radius:10px;background:#0d1720;color:var(--text);font:inherit;font-size:14px;font-weight:750;cursor:pointer;}
     .records-table-wrap{overflow:visible;max-width:100%}
     .records-table{width:100%;min-width:0;table-layout:fixed}
     .records-table th,.records-table td{padding:8px 6px;font-size:12px;overflow-wrap:anywhere;word-break:normal}
     .records-table th{font-size:9px;letter-spacing:.04em}
     .records-table td:last-child,.records-table th:last-child{white-space:nowrap;text-align:right}
     @media(max-width:600px){
-      .record-class-tabs{gap:5px}
-      .record-class-tab{padding:7px 5px;font-size:10px;line-height:1.2}
       .records-table th,.records-table td{padding:7px 3px;font-size:10px;line-height:1.25}
       .records-table th{font-size:8px}
       .records-table td:first-child{font-size:10px}
@@ -1417,11 +1415,13 @@ function renderGT3Records() {
   const lapCount = classRaces.reduce((sum, race) => sum + getRaceLaps(race.id).length, 0);
 
   container.innerHTML = `
-    <div class="record-class-tabs" role="group" aria-label="Класс автомобилей">
-      ${recordClasses.map(className => `
-        <button type="button" class="record-class-tab ${className === selectedRecordClass ? "active" : ""}"
-          data-record-class="${escapeHtml(className)}">${escapeHtml(className)}</button>
-      `).join("")}
+    <div class="record-class-select-wrap">
+      <label class="record-class-select-label" for="record-class-select">Класс автомобиля</label>
+      <select id="record-class-select" class="record-class-select" aria-label="Выбрать класс автомобиля">
+        ${["GT3", ...recordClasses.filter(className => className !== "GT3")].map(className => `
+          <option value="${escapeHtml(className)}" ${className === selectedRecordClass ? "selected" : ""}>${escapeHtml(className)}</option>
+        `).join("")}
+      </select>
     </div>
 
     <h3 class="record-section-title">Лучшие хот-лапы · ${escapeHtml(selectedRecordClass)}</h3>
@@ -1477,11 +1477,9 @@ function renderGT3Records() {
     </div>
   `;
 
-  container.querySelectorAll("[data-record-class]").forEach(button => {
-    button.addEventListener("click", () => {
-      selectedRecordClass = button.dataset.recordClass;
-      renderGT3Records();
-    });
+  container.querySelector("#record-class-select")?.addEventListener("change", event => {
+    selectedRecordClass = event.target.value;
+    renderGT3Records();
   });
 }
 
