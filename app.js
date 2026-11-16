@@ -1179,33 +1179,25 @@ $("toggle-event").onclick = async () => {
 async function playDrawReveal(result) {
   const overlay = document.createElement("div");
   overlay.className = "draw-overlay";
-  overlay.innerHTML = `
-    <div class="draw-stage">
-      <div class="draw-kicker">AMS2 / RACE NIGHT</div>
-      <div class="draw-heading">Жеребьёвка</div>
-      <div class="draw-subtitle">Формируем конфигурации двух гонок…</div>
-      <div class="draw-races">
-        ${[0,1].map(index => `
-          <div class="draw-race">
-            <div class="draw-race-title">RACE 0${index + 1}</div>
-            ${categoryOrder.map(cat => `
-              <div class="draw-row">
-                <div class="draw-label">${labels[cat]}</div>
-                <div class="draw-value" data-draw-value="${index}-${cat}">ОЖИДАНИЕ</div>
-              </div>
-            `).join("")}
-          </div>
-        `).join("")}
-      </div>
-      <div class="draw-footer">
-        <div class="draw-progress"><span></span></div>
-        <button class="draw-skip" type="button">Пропустить</button>
-      </div>
-    </div>
-  `;
+  overlay.innerHTML =
+    '<div class="draw-stage draw-wheel-stage">' +
+      '<div class="draw-kicker">AMS2 / RACE NIGHT</div>' +
+      '<div class="draw-heading">Колесо фортуны</div>' +
+      '<div class="draw-subtitle" id="draw-status">Готовим первый розыгрыш…</div>' +
+      '<div class="draw-wheel-area">' +
+        '<div class="draw-wheel-pointer"></div>' +
+        '<div class="draw-wheel" id="draw-wheel"><div class="draw-wheel-center">AMS2</div></div>' +
+      '</div>' +
+      '<div class="draw-picked" id="draw-picked">Определяем конфигурацию гонок</div>' +
+      '<div class="draw-footer">' +
+        '<div class="draw-progress"><span></span></div>' +
+        '<button class="draw-skip" type="button">Пропустить</button>' +
+      '</div>' +
+    '</div>';
   document.body.appendChild(overlay);
 
   let finished = false;
+  let currentRotation = 0;
   const finish = () => {
     if (finished) return;
     finished = true;
@@ -1215,45 +1207,81 @@ async function playDrawReveal(result) {
 
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const fields = categoryOrder.length * 2;
+  const wheel = overlay.querySelector("#draw-wheel");
+  const progress = overlay.querySelector(".draw-progress span");
+  const palette = ["#b9f36b", "#5ec8e8", "#f5b84b", "#b18cff", "#ff8d8d", "#55d6a6", "#f28ac5", "#8ba8ff", "#d5dfeb", "#e5a36b"];
+  const total = categoryOrder.length * 2;
   let completed = 0;
 
   for (let race = 0; race < 2 && !finished; race++) {
     for (const cat of categoryOrder) {
       if (finished) break;
-      const node = overlay.querySelector(`[data-draw-value="${race}-${cat}"]`);
-      const chosen = resultValues(result?.[cat]);
-      const finalId = chosen[race] ?? chosen[0];
-      const finalLabel = finalId ? optionLabel(finalId) : "—";
-      const pool = categories.filter(item => item.category === cat && item.active);
-      node.classList.add("is-spinning");
+      const chosen = resultValues(result && result[cat]);
+      const finalId = chosen[race] !== undefined ? chosen[race] : chosen[0];
+      const finalLabel = finalId !== undefined ? optionLabel(finalId) : "—";
+      let pool = categories
+        .filter(item => item.category === cat && item.active)
+        .map(item => ({ id: String(item.id), label: item.label }));
+      if (!pool.some(item => item.id === String(finalId))) {
+        pool.push({ id: String(finalId), label: finalLabel });
+      }
+      if (!pool.length) pool = [{ id: String(finalId), label: finalLabel }];
 
-      if (!reduceMotion && pool.length) {
-        for (let tick = 0; tick < 6; tick++) {
-          if (finished) break;
-          node.textContent = pool[Math.floor(Math.random() * pool.length)].label;
-          await delay(55 + tick * 7);
-        }
+      const winnerIndex = Math.max(0, pool.findIndex(item => item.id === String(finalId)));
+      const slice = 360 / pool.length;
+      const stops = pool.map((item, index) => {
+        const color = palette[index % palette.length];
+        return color + " " + (index * slice) + "deg " + ((index + 1) * slice) + "deg";
+      });
+      wheel.style.background = "conic-gradient(" + stops.join(",") + ")";
+      wheel.querySelectorAll(".draw-wheel-label").forEach(node => node.remove());
+      if (pool.length <= 14) {
+        const radius = Math.min(116, 145 - pool.length * 1.2);
+        pool.forEach((item, index) => {
+          const angle = index * slice + slice / 2;
+          const label = document.createElement("span");
+          label.className = "draw-wheel-label";
+          label.textContent = item.label;
+          label.style.transform = "rotate(" + angle + "deg) translateY(-" + radius + "px) rotate(" + (-angle) + "deg)";
+          wheel.appendChild(label);
+        });
       }
 
+      overlay.querySelector("#draw-status").textContent = "ГОНКА 0" + (race + 1) + " · " + labels[cat].toUpperCase();
+      overlay.querySelector("#draw-picked").textContent = "Колесо выбирает вариант…";
+      if (reduceMotion) {
+        currentRotation = 360 - (winnerIndex * slice + slice / 2);
+        wheel.style.transition = "none";
+        wheel.style.transform = "rotate(" + currentRotation + "deg)";
+      } else {
+        const desiredAngle = (360 - (winnerIndex * slice + slice / 2) + 360) % 360;
+        const currentAngle = ((currentRotation % 360) + 360) % 360;
+        const adjustment = (desiredAngle - currentAngle + 360) % 360;
+        const targetRotation = currentRotation + 720 + adjustment;
+        wheel.style.transition = "transform 820ms cubic-bezier(.12,.78,.12,1)";
+        void wheel.offsetWidth;
+        wheel.style.transform = "rotate(" + targetRotation + "deg)";
+        currentRotation = targetRotation;
+        await delay(850);
+      }
       if (finished) break;
-      node.textContent = finalLabel;
-      node.classList.remove("is-spinning");
-      node.classList.add("is-final");
+      overlay.querySelector("#draw-picked").textContent = finalLabel;
+      overlay.querySelector("#draw-picked").classList.remove("is-revealed");
+      void overlay.querySelector("#draw-picked").offsetWidth;
+      overlay.querySelector("#draw-picked").classList.add("is-revealed");
       completed++;
-      overlay.querySelector(".draw-progress span").style.width =
-        (completed / fields * 100) + "%";
-      await delay(reduceMotion ? 30 : 145);
+      progress.style.width = (completed / total * 100) + "%";
+      await delay(reduceMotion ? 25 : 130);
     }
   }
 
   if (!finished) {
-    overlay.querySelector(".draw-subtitle").textContent = "Конфигурации готовы. Удачной гонки!";
-    await delay(reduceMotion ? 100 : 850);
+    overlay.querySelector("#draw-status").textContent = "ЖЕРЕБЬЁВКА ЗАВЕРШЕНА";
+    overlay.querySelector("#draw-picked").textContent = "Конфигурации обеих гонок определены";
+    await delay(reduceMotion ? 100 : 700);
     finish();
   }
 }
-
 $("draw").onclick = async () => {
   if (!currentEvent || !isAdmin) return;
 
