@@ -275,13 +275,12 @@ input,select{background:#0b141c;border:1px solid var(--line);border-radius:9px;c
      <button class="btn" id="logout">Выйти</button>
     </div>
     <div class="field">
-     <label>Название гоночного вечера</label>
+     <label>Название гоночного вечера <span class="hint">· сохраняется автоматически</span></label>
      <input id="event-name" maxlength="80">
     </div>
-    <div class="actions">
-     <button class="btn primary" id="save-event">Сохранить название</button>
+    <div class="actions" id="admin-primary-actions">
      <button class="btn" id="toggle-event">Закрыть голосование</button>
-     <button class="btn" id="draw">Провести weighted-жеребьёвку</button>
+     <button class="btn primary" id="draw">Провести жеребьёвку</button>
     </div>
    </div>
 
