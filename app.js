@@ -386,7 +386,6 @@ function installExtraStyles() {
     .stats-bar-track{grid-column:1/-1;height:5px;border-radius:8px;background:#1b2a36;overflow:hidden}
     .stats-bar-fill{height:100%;border-radius:8px}
     .category-icon{display:inline-grid;place-items:center;width:24px;height:24px;margin-right:7px;border-radius:7px;background:#b9f36b12;font-size:15px;vertical-align:-3px}
-    .option-icon{display:inline-grid;place-items:center;flex:0 0 20px;width:20px;font-size:14px}
     .admin-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin:10px 0}
     .admin-add-row input{min-width:0}.admin-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px}
     .admin-options .admin-option{margin:0;padding:8px;min-width:0}
