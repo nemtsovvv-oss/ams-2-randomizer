@@ -20,6 +20,8 @@ let isOpen = true;
 let adminLoaded = false;
 let lastStatsLoadedAt = 0;
 let lastRecordsLoadedAt = 0;
+let selectedRecordClass = "GT3";
+const recordClasses = ["Group C (Прототипы)", "Stock Car Pro (NASCAR)", "GT1", "LMP", "GT CLASSICS (Туринги 70-х)", "GT3", "GT4"];
 
 let gt3Races = [];
 let gt3Laps = [];
@@ -1324,7 +1326,7 @@ async function loadGT3Records() {
       .order("lap_ms", { ascending: true }),
 
     sb.from("events")
-      .select("id,title,created_at")
+      .select("id,title,created_at,result")
   ]);
 
   const error = racesResponse.error || lapsResponse.error || eventsResponse.error;
@@ -1491,18 +1493,7 @@ async function renderGT3EntryForms() {
     isGT3: isGT3Class(classes[index] ?? classes[0])
   }));
 
-  const gt3Only = races.filter(race => race.isGT3);
-
-  if (!gt3Only.length) {
-    container.innerHTML = `
-      <div class="record-empty">
-        В этом вечере не выпал класс GT3. Результаты не будут добавлены в GT3-статистику.
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = gt3Only.map(race => {
+  container.innerHTML = races.map(race => {
     const saved = gt3Races.find(item =>
       item.event_id === currentEvent.id &&
       item.race_number === race.number
@@ -1578,11 +1569,6 @@ async function addGT3Lap(raceNumber) {
   const tracks = resultValues(result.track);
   const classes = resultValues(result.car_class);
   const classId = classes[raceNumber - 1] ?? classes[0];
-
-  if (!isGT3Class(classId)) {
-    showNotice("Эта гонка не относится к GT3.");
-    return;
-  }
 
   const trackName = optionLabel(tracks[raceNumber - 1] ?? tracks[0] ?? "—");
   const driver = $(`new-lap-driver-${raceNumber}`).value.trim();
