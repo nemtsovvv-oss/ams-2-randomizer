@@ -1370,7 +1370,7 @@ async function playDrawReveal(result) {
       picked.textContent = finalLabel;
       picked.classList.remove("is-revealed");
       void picked.offsetWidth;
-      picked.classList.add("is-revealed");
+      if (cat === "track") picked.classList.add("is-revealed");
       completed++;
       progress.style.width = (completed / total * 100) + "%";
       await delay(reduceMotion ? 20 : 180);
