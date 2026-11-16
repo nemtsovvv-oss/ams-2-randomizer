@@ -393,6 +393,9 @@ function installExtraStyles() {
     .admin-option-label{min-width:0;overflow-wrap:anywhere;font-size:12px}
     .admin-option-label small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
     .admin-delete{padding:3px 8px;min-width:30px;font-size:16px;line-height:1}
+    #admin-categories{grid-template-columns:repeat(2,minmax(0,1fr))}
+    @media(hover:none){.option,.tab,.btn{transition:none!important}.option:hover,.tab:hover,.btn:hover{transform:none!important;filter:none!important}}
+    @media(max-width:600px){#admin-categories{grid-template-columns:1fr}}
     @media(max-width:600px){
       .gt3-lap-edit,.gt3-admin-fields{grid-template-columns:1fr}
       .gt3-lap-item{grid-template-columns:1fr}
