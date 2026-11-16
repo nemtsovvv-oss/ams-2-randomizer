@@ -828,7 +828,7 @@ function renderAdminOptions() {
     return `<div class="panel admin-category-panel"><h2><span class="category-icon">${icon}</span>${labels[cat]}</h2>
       <div class="admin-add-row"><input id="new-${cat}" maxlength="80" placeholder="Новый вариант"><button class="btn primary" data-add="${cat}">Добавить</button></div>
       <div class="options admin-options">${categories.filter(option=>option.category===cat).map(option=>`
-        <label class="option admin-option ${option.active?"":"disabled-option"}"><input type="checkbox" data-toggle-option="${option.id}" ${option.active?"checked":""} title="Активность варианта"><span class="option-icon">${icon}</span><span class="admin-option-label">${escapeHtml(option.label)}<small>${option.active?"Активен":"Отключён"}</small></span><button type="button" class="btn danger admin-delete" data-delete-option="${option.id}">×</button></label>
+        <div class="option admin-option ${option.active?"":"disabled-option"}"><input type="checkbox" data-toggle-option="${option.id}" ${option.active?"checked":""} title="Активность варианта"><span class="option-icon">${icon}</span><span class="admin-option-label">${escapeHtml(option.label)}<small>${option.active?"Активен":"Отключён"}</small></span><button type="button" class="btn danger admin-delete" data-delete-option="${option.id}">×</button></div>
       `).join("")||'<div class="muted">Вариантов пока нет</div>'}</div></div>`;
   }).join("");
 
@@ -1002,7 +1002,6 @@ async function loadAdminVoters() {
     return;
   }
 
-  lastStatsLoadedAt = Date.now();
   const votes = data || [];
 
   if (!votes.length) {
@@ -1964,6 +1963,7 @@ async function loadVoteStats() {
     return;
   }
 
+  lastStatsLoadedAt = Date.now();
   const votes = data || [];
 
   if (!votes.length) {
