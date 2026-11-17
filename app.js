@@ -409,6 +409,8 @@ function installExtraStyles() {
     .admin-option-label small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
     .admin-delete{padding:3px 8px;min-width:30px;font-size:16px;line-height:1}
     #admin-categories{grid-template-columns:repeat(2,minmax(0,1fr))}
+    /* Desktop: vote categories use full-width rows, not the generic 3-column layout */
+    #vote-categories{grid-template-columns:minmax(0,1fr)}
     @media(hover:none){.option,.tab,.btn{transition:none!important}.option:hover,.tab:hover,.btn:hover{transform:none!important;filter:none!important}}
     @media(max-width:600px){#admin-categories{grid-template-columns:1fr}.admin-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.admin-options .admin-option{padding:6px;gap:6px}.admin-option-label{font-size:11px}.admin-delete{min-width:26px;padding:2px 6px}}
     @media(max-width:600px){
